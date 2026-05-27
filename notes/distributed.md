@@ -194,6 +194,54 @@ keeps expert inputs sequence-parallel so dispatch/combine needn't gather the
 full sequence first — this is why `is_sequence_parallel` threads through the
 `dispatch`/`combine` calls.
 
+### Worked example: TP + SP on an MLP
+
+Take the classic Megatron MLP — `X @ W1 @ W2` with `S=2` tokens, `H=4`, on
+`P=2` devices. TP shards `W1` by column (`ColumnParallel`, no comm) and `W2` by
+row (`RowParallel`, needs reduction), then the block does RMSNorm:
+
+```
+TP only:
+Device 0: X[2x4] @ W1a[4x2] @ W2a[2x4] = partial0[2x4]
+Device 1: X[2x4] @ W1b[4x2] @ W2b[2x4] = partial1[2x4]
+
+all_reduce:  partial0[2x4] + partial1[2x4] = Y[2x4]   ← full on BOTH devices
+RMSNorm(Y[2x4]) on Device 0 → Z[2x4]   ┐
+RMSNorm(Y[2x4]) on Device 1 → Z[2x4]   ┘ ← identical work done twice (redundant)
+```
+
+SP leaves the matmuls untouched but replaces `all_reduce` with `reduce_scatter`,
+norms the sharded tokens, then `all_gather`s back (`S/P = 1` token per device):
+
+```
+TP + SP:
+Device 0: X[2x4] @ W1a[4x2] @ W2a[2x4] = partial0[2x4]   ← matmuls UNCHANGED
+Device 1: X[2x4] @ W1b[4x2] @ W2b[2x4] = partial1[2x4]
+
+reduce_scatter(dim=0):       # sum across devices, keep only 1/P of the rows (tokens)
+   Device 0 ← (partial0+partial1)[row 0:1] = Y[1x4]   (token 0)
+   Device 1 ← (partial0+partial1)[row 1:2] = Y[1x4]   (token 1)
+RMSNorm:
+   Device 0: RMSNorm(Y[1x4]) = Z[1x4]   ← norms ONLY token 0
+   Device 1: RMSNorm(Y[1x4]) = Z[1x4]   ← norms ONLY token 1
+all_gather(dim=0):           # reassemble full sequence for the next ColumnParallel
+   both devices → Z[2x4]
+```
+
+Identical result because RMSNorm is per-token: `RMSNorm(Y[2x4])[row j] ==
+RMSNorm(Y[row j])`. The numbers, with `N = S·H = 8` elements, `P = 2`:
+
+| | Communication / device | RMSNorm input / device |
+|---|---|---|
+| **TP** | `all_reduce` = `2(P-1)/P·N` = **8** | `[2x4]` = 8 elems, 2 tokens |
+| **TP+SP** | `reduce_scatter`+`all_gather` = `4+4` = **8** | `[1x4]` = 4 elems, 1 token |
+
+Same bytes on the wire (`all_reduce` *is* `reduce_scatter`+`all_gather`
+internally), but `1/P` the activation memory and norm compute in the middle.
+Across a deep model the residual stream stays sharded `[1x4]` between blocks and
+is only gathered at matmul inputs, so the `1/P` memory saving **compounds over
+every layer** — that's the real payoff at scale.
+
 ### SP vs context parallel (CP) — don't conflate
 
 Both shard "the sequence," but for opposite reasons:
