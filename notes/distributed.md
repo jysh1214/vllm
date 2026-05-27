@@ -145,6 +145,148 @@ also pack multiple projections into one sharded matmul.
 `VocabParallelEmbedding` (`vocab_parallel_embedding.py:192`) shards the
 vocabulary across TP ranks for the embedding and LM head.
 
+## Expert parallelism (EP) in detail
+
+EP is the MoE-specific axis, and it's worth its own section because it uses a
+*different* collective than every other axis — **all-to-all instead of
+all-reduce**.
+
+### What MoE creates
+
+A Mixture-of-Experts layer replaces the dense MLP with *N* expert MLPs plus a
+**router** (gate). For each token the router picks the **top-k** experts (e.g.
+top-2 of 256) and only those run — huge parameter count, small *active* compute
+per token.
+
+```mermaid
+flowchart LR
+    T["token hidden state"] --> R["router / gate<br/>(linear → softmax)"]
+    R -->|top-k ids + weights| SEL{"pick top-2<br/>of N experts"}
+    SEL --> E3["Expert 3"]
+    SEL --> E7["Expert 7"]
+    E3 --> W["weighted<br/>sum"]
+    E7 --> W
+    W --> O["output hidden state"]
+```
+
+With 256 experts the weights don't fit on one GPU, and replicating them on every
+GPU (the TP approach) wastes memory. EP shards the **experts themselves** across
+ranks — each rank owns a disjoint slice.
+
+### How experts are sharded
+
+`determine_expert_map` (`fused_moe/layer.py:71`) splits `global_num_experts`
+across `ep_size` ranks: `local_num_experts = global_num_experts // ep_size`
+(+1 to absorb the remainder). It builds an `expert_map: global_id → local_id`
+(or `-1` when that expert isn't on this rank).
+
+```mermaid
+flowchart TD
+    subgraph G["8 experts, EP=4"]
+        direction LR
+        R0["Rank 0<br/>E0, E1"]
+        R1["Rank 1<br/>E2, E3"]
+        R2["Rank 2<br/>E4, E5"]
+        R3["Rank 3<br/>E6, E7"]
+    end
+```
+
+Each rank holds **whole experts**, not slices — the key contrast with TP.
+
+### The heart: dispatch → compute → combine
+
+A token's top-k experts may live on *other* ranks, so every MoE layer does an
+**all-to-all shuffle** to bring tokens to their experts, then another to send
+results back. This is the `dispatch` / `combine` pair on the device communicator
+(`base_device_communicator.py:344` and `:363`).
+
+```mermaid
+flowchart TD
+    subgraph S1["Step 1 — local, per rank"]
+        A0["Rank 0: tokens t0,t1<br/>router → ids+weights"]
+        A1["Rank 1: tokens t2,t3<br/>router → ids+weights"]
+    end
+    subgraph S2["Step 2 — DISPATCH (all-to-all)"]
+        D["shuffle each token to the<br/>rank owning its chosen expert"]
+    end
+    subgraph S3["Step 3 — expert compute (local)"]
+        C0["Rank 0 runs E0,E1<br/>on tokens routed here"]
+        C1["Rank 1 runs E2,E3<br/>on tokens routed here"]
+    end
+    subgraph S4["Step 4 — COMBINE (all-to-all)"]
+        K["shuffle results back to<br/>each token's origin rank"]
+    end
+    subgraph S5["Step 5 — local"]
+        F0["Rank 0: weighted-sum<br/>top-k results for t0,t1"]
+        F1["Rank 1: weighted-sum<br/>top-k results for t2,t3"]
+    end
+    A0 --> D
+    A1 --> D
+    D --> C0
+    D --> C1
+    C0 --> K
+    C1 --> K
+    K --> F0
+    K --> F1
+```
+
+The journey of one token across ranks:
+
+```mermaid
+sequenceDiagram
+    participant R0 as Rank 0 (owns E0,E1)
+    participant R1 as Rank 1 (owns E2,E3)
+    Note over R0: t0 routed to E0 (local) + E3 (remote)
+    R0->>R0: router picks {E0, E3} for t0
+    R0->>R1: dispatch all-to-all: send t0 (for E3)
+    Note over R0,R1: each rank now holds only tokens for its experts
+    R0->>R0: run E0(t0)
+    R1->>R1: run E3(t0)
+    R1->>R0: combine all-to-all: return E3(t0)
+    R0->>R0: t0_out = w0·E0(t0) + w3·E3(t0)
+```
+
+### Why all-to-all, not all-reduce
+
+The deep reason EP uses a different collective than TP:
+
+- **TP** splits a single matmul, so each rank produces a *partial result for the
+  same tokens* → you **sum** them (all-reduce).
+- **EP** splits *which tokens go where*, so each rank produces *complete results
+  for different tokens* → you **route** them (all-to-all). Nothing is summed
+  across ranks; tokens are permuted to their experts and back.
+
+### EP vs TP for the same MoE layer
+
+| | TP (tensor parallel) | EP (expert parallel) |
+|---|---|---|
+| Unit split | each expert matrix, by row/col | whole experts, by id |
+| Per-rank work | a slice of *all* selected experts | *all* of a *few* experts |
+| Communication | all-reduce (sum partial activations) | all-to-all ×2 (route tokens, route back) |
+| Memory | every rank stores every expert (sliced) | each rank stores only its experts |
+| Scales with | matrix dimensions | number of experts |
+
+EP wins when there are many experts (the TP slice gets tiny and inefficient).
+The two are often **combined** — `ep_size = tp_size × dp_size` — so router
+output is gathered across the TP×DP ranks and experts spread over all of them.
+
+### Pluggable all-to-all backends
+
+`dispatch`/`combine` are implemented by an `All2AllManager`
+(`device_communicators/all2all.py`), chosen by config — the same per-regime
+pattern as the all-reduce path:
+
+| Manager | Mechanism | Use |
+|---|---|---|
+| `AgRsAll2AllManager` (`:41`) | naive all-gather + reduce-scatter | baseline, no special kernels |
+| `DeepEPHTAll2AllManager` (`:197`) | DeepEP **high-throughput** kernels | large batches / prefill |
+| `DeepEPLLAll2AllManager` (`:261`) | DeepEP **low-latency** kernels (RDMA, no SMs) | decode, latency-critical |
+| `NixlEPAll2AllManager` (`:334`) | NIXL EP kernels | cross-node transport |
+
+**EPLB** (`distributed/eplb/`) sits alongside, periodically rebalancing which
+experts live on which rank so load stays even — some experts get picked far more
+often than others, and an imbalanced layer is as slow as its busiest rank.
+
 ## The other axes, briefly
 
 - **PP** — `get_pp_group()` ranks form a chain. Each stage runs a slice of the
@@ -155,11 +297,8 @@ vocabulary across TP ranks for the embedding and LM head.
   `generate` together or risk deadlock (`parallel_state.py:1556`), because they
   synchronize on shared collectives (notably for MoE/EP). The model weights are
   not split — each replica has a full `world_size = TP×PP` set of workers.
-- **EP** — for MoE, experts are partitioned across ranks. Each step routes
-  tokens to the ranks owning their experts via **all-to-all** (`dispatch`),
-  runs the experts locally, then **all-to-all** back (`combine`). Managed by the
-  `All2AllManager` in `device_communicators/all2all.py`; EPLB
-  (`distributed/eplb/`) rebalances expert placement to even out load.
+- **EP** — for MoE, experts are partitioned across ranks; see the dedicated
+  section below.
 
 ## Beyond model parallelism
 
@@ -186,6 +325,9 @@ splitting the model:
   column-then-row sharding that keeps intermediates local.
 - **DP ranks must step in lockstep** (call `generate` together) or deadlock on
   shared collectives.
+- **EP routes, TP sums.** EP holds whole experts and shuffles tokens with
+  all-to-all (`dispatch`/`combine`); TP holds matrix slices and sums with
+  all-reduce. The collective differs because the split differs.
 - **Communication backend is pluggable per platform and per call** — custom
   all-reduce kernel, pynccl, or a vendor variant, chosen by size/topology.
 
@@ -198,7 +340,11 @@ splitting the model:
 - `vllm/distributed/device_communicators/base_device_communicator.py:118` — `DeviceCommunicatorBase`
 - `vllm/distributed/device_communicators/cuda_communicator.py` — CUDA backend
 - `vllm/distributed/device_communicators/pynccl.py` — NCCL wrapper
-- `vllm/distributed/device_communicators/all2all.py` — EP all-to-all
+- `vllm/distributed/device_communicators/base_device_communicator.py:344` / `:363` — `dispatch` / `combine` (EP all-to-all)
+- `vllm/distributed/device_communicators/all2all.py` — EP all-to-all backends (`AgRs`, `DeepEP` HT/LL, `Nixl`)
+- `vllm/model_executor/layers/fused_moe/layer.py:71` — `determine_expert_map` (expert sharding)
+- `vllm/model_executor/layers/fused_moe/layer.py:219` — `FusedMoE`
+- `vllm/distributed/eplb/` — expert-load-balancing (EPLB)
 - `vllm/model_executor/layers/linear.py:410` / `:1389` — Column/Row parallel linear
 - `vllm/model_executor/layers/vocab_parallel_embedding.py:192` — vocab sharding
 - `vllm/config/parallel.py` — `ParallelConfig` (TP/PP/DP/EP sizes, `world_size`)
