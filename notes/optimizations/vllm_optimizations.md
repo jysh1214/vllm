@@ -84,15 +84,15 @@ A catalog of optimization techniques shipped in the vLLM codebase, grouped by ca
 | MoE | DeepEP / pplx all-to-all | |
 | MoE | Shared experts | |
 | MoE | AITER shared-experts fusion | |
-| Speculative Decoding | Draft-target spec decoding | |
-| Speculative Decoding | EAGLE / EAGLE-3 | |
-| Speculative Decoding | Medusa | |
-| Speculative Decoding | N-gram proposer (CPU + GPU) | |
-| Speculative Decoding | Lookahead decoding | |
+| Speculative Decoding | [Draft-target spec decoding](SpeculativeDecoding.md) | ✓ |
+| Speculative Decoding | [EAGLE / EAGLE-3](SpeculativeDecoding.md#why-not-draft-with-the-target-itself) | ✓ |
+| Speculative Decoding | [Medusa](SpeculativeDecoding.md#why-not-draft-with-the-target-itself) | ✓ |
+| Speculative Decoding | [N-gram proposer (CPU + GPU)](SpeculativeDecoding.md#why-not-draft-with-the-target-itself) | ✓ |
+| Speculative Decoding | [Lookahead decoding](SpeculativeDecoding.md#why-not-draft-with-the-target-itself) | ✓ |
 | Speculative Decoding | Suffix tree decoding | |
 | Speculative Decoding | DFlash verification kernel | |
 | Speculative Decoding | MTP (multi-token prediction) | |
-| Speculative Decoding | Rejection sampler | |
+| Speculative Decoding | [Rejection sampler](SpeculativeDecoding.md#stochastic-correctness-sketch) | ✓ |
 | Speculative Decoding | Draft model warmup | |
 | Compilation | torch.compile / Inductor backend | |
 | Compilation | CUDA Graphs (full + piecewise) | |
@@ -107,7 +107,7 @@ A catalog of optimization techniques shipped in the vLLM codebase, grouped by ca
 | Compilation | Fusion: QK-Norm + RoPE | |
 | Compilation | Fusion: Activation + Quant | |
 | Compilation | Fusion: MLA Attention + Quant | |
-| Compilation | Fusion: RoPE + KV-cache update | |
+| Compilation | [Fusion: RoPE + KV-cache update](RoPEKVCacheFusion.md) | ✓ |
 | Compilation | Fusion: Collective + Compute | |
 | Compilation | Fusion: ROCm AITER | |
 | Compilation | Sequence-parallelism IR pass | |
@@ -181,12 +181,12 @@ A catalog of optimization techniques shipped in the vLLM codebase, grouped by ca
 | Model-specific Kernels | RoPE: FoPE | |
 | Model-specific Kernels | RoPE: XDRoPE | |
 | Model-specific Kernels | RoPE: Phi3-long | |
-| LoRA | Punica kernels | |
-| LoRA | Multi-LoRA batching | |
-| LoRA | LoRA dual-stream execution | |
-| LoRA | PDL projection optimization | |
-| LoRA | LoRA model manager | |
-| LoRA | LoRA weight resolver | |
+| LoRA | [Punica kernels](LoRA.md#bgmv--batched-grouped-matrix-vector) | ✓ |
+| LoRA | [Multi-LoRA batching](LoRA.md#the-multi-tenant-serving-problem) | ✓ |
+| LoRA | [LoRA dual-stream execution](LoRA.md#other-lora-optimizations-in-vllm) | ✓ |
+| LoRA | [PDL projection optimization](LoRA.md#other-lora-optimizations-in-vllm) | ✓ |
+| LoRA | [LoRA model manager](LoRA.md#other-lora-optimizations-in-vllm) | ✓ |
+| LoRA | [LoRA weight resolver](LoRA.md#other-lora-optimizations-in-vllm) | ✓ |
 | Multi-Modal | Encoder output cache | |
 | Multi-Modal | Image-embedding hash cache | |
 | Multi-Modal | Video chunking | |
