@@ -145,6 +145,64 @@ also pack multiple projections into one sharded matmul.
 `VocabParallelEmbedding` (`vocab_parallel_embedding.py:192`) shards the
 vocabulary across TP ranks for the embedding and LM head.
 
+## Sequence parallelism (SP) — a TP companion
+
+SP is **not a standalone axis** like TP/PP/DP/EP — there is no `_SP`
+`GroupCoordinator`. It reuses the **TP group** and is realized as a
+`torch.compile` **graph rewrite** of TP's collectives
+(`compilation/passes/fusion/sequence_parallelism.py`), enabled by
+`CompilationConfig.enable_sp` (`config/compilation.py:129`, requires TP>1).
+
+The problem it fixes: in plain TP the regions *between* the two per-layer
+all-reduces — the RMSNorm and residual adds — are **replicated** on every TP
+rank. Every rank redundantly normalizes the full-length sequence and stores the
+full-length activations. SP shards those regions along the **token dimension**.
+
+The pass matches `all_reduce → rms_norm` and rewrites it
+(`sequence_parallelism.py:133`):
+
+```
+plain TP :  all_reduce(x)                  → rms_norm(...)
+   SP    :  reduce_scatter(x, dim=0)        → rms_norm(...) → all_gather(..., dim=0)
+```
+
+`dim=0` is the token dimension. The crucial property: **`reduce_scatter` +
+`all_gather` move the same total bytes as one `all_reduce`** — so communication
+volume is unchanged — but between them each rank handles only `1/tp` of the
+tokens.
+
+```mermaid
+flowchart LR
+    subgraph TP["plain TP"]
+        a1["matmul out<br/>(full seq, all ranks)"] --> ar["all_reduce"] --> n1["RMSNorm<br/>(full seq, replicated)"]
+    end
+    subgraph SP["with SP"]
+        a2["matmul out"] --> rs["reduce_scatter dim=0"] --> n2["RMSNorm<br/>(1/tp of tokens)"] --> ag["all_gather dim=0"]
+    end
+```
+
+So SP is a near-free win **on top of** TP: it cuts redundant LayerNorm compute
+and, more importantly, **activation memory** to `1/tp` in those regions. It is
+**size-gated** (`get_sequence_parallelism_threshold`, `sequence_parallelism.py:44`)
+— only applied when `hidden_size` and token count are large enough to pay off
+(e.g. H100: `hidden_size ≥ 8192`), auto-disabled otherwise.
+
+*Async TP* (`fuse_gemm_comms`, "Enable async TP") layers on top, overlapping the
+GEMM with the SP collectives (`collective_fusion.py:409`). Separately,
+**sequence-parallel MoE** (`use_sequence_parallel_moe`, `config/parallel.py:611`)
+keeps expert inputs sequence-parallel so dispatch/combine needn't gather the
+full sequence first — this is why `is_sequence_parallel` threads through the
+`dispatch`/`combine` calls.
+
+### SP vs context parallel (CP) — don't conflate
+
+Both shard "the sequence," but for opposite reasons:
+
+| | Shards | Of what | Purpose | Standalone axis? |
+|---|---|---|---|---|
+| **SP** | token dim | the RMSNorm/residual regions *around* TP matmuls | cut redundant TP activation memory/compute | No — reuses TP group |
+| **CP** (PCP/DCP) | sequence dim | attention + KV cache | fit / parallelize very long contexts | Yes — own group, in the rank grid |
+
 ## Expert parallelism (EP) in detail
 
 EP is the MoE-specific axis, and it's worth its own section because it uses a
@@ -328,6 +386,10 @@ splitting the model:
 - **EP routes, TP sums.** EP holds whole experts and shuffles tokens with
   all-to-all (`dispatch`/`combine`); TP holds matrix slices and sums with
   all-reduce. The collective differs because the split differs.
+- **SP is a TP rewrite, not an axis.** It reuses the TP group and turns
+  `all_reduce` into `reduce_scatter`+`all_gather` to shard the norm/residual
+  regions by token — same bytes, less activation memory. CP is the real
+  sequence-sharding axis (for attention/KV).
 - **Communication backend is pluggable per platform and per call** — custom
   all-reduce kernel, pynccl, or a vendor variant, chosen by size/topology.
 
@@ -347,5 +409,7 @@ splitting the model:
 - `vllm/distributed/eplb/` — expert-load-balancing (EPLB)
 - `vllm/model_executor/layers/linear.py:410` / `:1389` — Column/Row parallel linear
 - `vllm/model_executor/layers/vocab_parallel_embedding.py:192` — vocab sharding
+- `vllm/compilation/passes/fusion/sequence_parallelism.py:133` — `SequenceParallelismPass` (SP rewrite)
+- `vllm/config/compilation.py:129` — `enable_sp` (SP flag) / `fuse_gemm_comms` (async TP)
 - `vllm/config/parallel.py` — `ParallelConfig` (TP/PP/DP/EP sizes, `world_size`)
 - `csrc/custom_all_reduce.cu` — custom all-reduce CUDA kernels
