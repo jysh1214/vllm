@@ -1,0 +1,615 @@
+vLLM lowering-path explorer — ALL combinations (complete chains)
+Generated from notes/lowering-explorer.html  (SUPPORT x MODES, backend derived)
+Columns:  OP | MODE | PLATFORM | SOURCE | BACKEND(mechanism) | HARDWARE
+============================================================================================
+
+### rmsnorm         (RMSNorm)   — 29 chains
+   1  rmsnorm        eager      cuda   native    aten_cuda        nvidia 
+   2  rmsnorm        compile    cuda   native    inductor_triton  nvidia 
+   3  rmsnorm        cudagraph  cuda   native    inductor_triton  nvidia 
+   4  rmsnorm        eager      rocm   native    aten_rocm        amd    
+   5  rmsnorm        compile    rocm   native    inductor_triton  amd    
+   6  rmsnorm        cudagraph  rocm   native    inductor_triton  amd    
+   7  rmsnorm        eager      cpu    native    aten_cpu         cpu    
+   8  rmsnorm        compile    cpu    native    inductor_cpp     cpu    
+   9  rmsnorm        eager      xpu    native    aten_xpu         intel  
+  10  rmsnorm        compile    xpu    native    inductor_triton  intel  
+  11  rmsnorm        compile    tpu    native    xla              tpu    
+  12  rmsnorm        eager      cuda   custom    nvcc             nvidia 
+  13  rmsnorm        compile    cuda   custom    nvcc             nvidia 
+  14  rmsnorm        cudagraph  cuda   custom    nvcc             nvidia 
+  15  rmsnorm        eager      rocm   custom    hip              amd    
+  16  rmsnorm        compile    rocm   custom    hip              amd    
+  17  rmsnorm        cudagraph  rocm   custom    hip              amd    
+  18  rmsnorm        eager      cpu    custom    cpp              cpu    
+  19  rmsnorm        compile    cpu    custom    cpp              cpu    
+  20  rmsnorm        eager      xpu    custom    sycl             intel  
+  21  rmsnorm        compile    xpu    custom    sycl             intel  
+  22  rmsnorm        eager      cuda   triton    triton_ptx       nvidia 
+  23  rmsnorm        compile    cuda   triton    triton_ptx       nvidia 
+  24  rmsnorm        cudagraph  cuda   triton    triton_ptx       nvidia 
+  25  rmsnorm        eager      rocm   triton    triton_hip       amd    
+  26  rmsnorm        compile    rocm   triton    triton_hip       amd    
+  27  rmsnorm        cudagraph  rocm   triton    triton_hip       amd    
+  28  rmsnorm        eager      xpu    triton    triton_xpu       intel  
+  29  rmsnorm        compile    xpu    triton    triton_xpu       intel  
+
+### gemma_rmsnorm   (GemmaRMSNorm)   — 29 chains
+  30  gemma_rmsnorm  eager      cuda   native    aten_cuda        nvidia 
+  31  gemma_rmsnorm  compile    cuda   native    inductor_triton  nvidia 
+  32  gemma_rmsnorm  cudagraph  cuda   native    inductor_triton  nvidia 
+  33  gemma_rmsnorm  eager      rocm   native    aten_rocm        amd    
+  34  gemma_rmsnorm  compile    rocm   native    inductor_triton  amd    
+  35  gemma_rmsnorm  cudagraph  rocm   native    inductor_triton  amd    
+  36  gemma_rmsnorm  eager      cpu    native    aten_cpu         cpu    
+  37  gemma_rmsnorm  compile    cpu    native    inductor_cpp     cpu    
+  38  gemma_rmsnorm  eager      xpu    native    aten_xpu         intel  
+  39  gemma_rmsnorm  compile    xpu    native    inductor_triton  intel  
+  40  gemma_rmsnorm  compile    tpu    native    xla              tpu    
+  41  gemma_rmsnorm  eager      cuda   custom    nvcc             nvidia 
+  42  gemma_rmsnorm  compile    cuda   custom    nvcc             nvidia 
+  43  gemma_rmsnorm  cudagraph  cuda   custom    nvcc             nvidia 
+  44  gemma_rmsnorm  eager      rocm   custom    hip              amd    
+  45  gemma_rmsnorm  compile    rocm   custom    hip              amd    
+  46  gemma_rmsnorm  cudagraph  rocm   custom    hip              amd    
+  47  gemma_rmsnorm  eager      cpu    custom    cpp              cpu    
+  48  gemma_rmsnorm  compile    cpu    custom    cpp              cpu    
+  49  gemma_rmsnorm  eager      xpu    custom    sycl             intel  
+  50  gemma_rmsnorm  compile    xpu    custom    sycl             intel  
+  51  gemma_rmsnorm  eager      cuda   triton    triton_ptx       nvidia 
+  52  gemma_rmsnorm  compile    cuda   triton    triton_ptx       nvidia 
+  53  gemma_rmsnorm  cudagraph  cuda   triton    triton_ptx       nvidia 
+  54  gemma_rmsnorm  eager      rocm   triton    triton_hip       amd    
+  55  gemma_rmsnorm  compile    rocm   triton    triton_hip       amd    
+  56  gemma_rmsnorm  cudagraph  rocm   triton    triton_hip       amd    
+  57  gemma_rmsnorm  eager      xpu    triton    triton_xpu       intel  
+  58  gemma_rmsnorm  compile    xpu    triton    triton_xpu       intel  
+
+### rmsnorm_gated   (RMSNormGated)   — 29 chains
+  59  rmsnorm_gated  eager      cuda   native    aten_cuda        nvidia 
+  60  rmsnorm_gated  compile    cuda   native    inductor_triton  nvidia 
+  61  rmsnorm_gated  cudagraph  cuda   native    inductor_triton  nvidia 
+  62  rmsnorm_gated  eager      rocm   native    aten_rocm        amd    
+  63  rmsnorm_gated  compile    rocm   native    inductor_triton  amd    
+  64  rmsnorm_gated  cudagraph  rocm   native    inductor_triton  amd    
+  65  rmsnorm_gated  eager      cpu    native    aten_cpu         cpu    
+  66  rmsnorm_gated  compile    cpu    native    inductor_cpp     cpu    
+  67  rmsnorm_gated  eager      xpu    native    aten_xpu         intel  
+  68  rmsnorm_gated  compile    xpu    native    inductor_triton  intel  
+  69  rmsnorm_gated  compile    tpu    native    xla              tpu    
+  70  rmsnorm_gated  eager      cuda   custom    nvcc             nvidia 
+  71  rmsnorm_gated  compile    cuda   custom    nvcc             nvidia 
+  72  rmsnorm_gated  cudagraph  cuda   custom    nvcc             nvidia 
+  73  rmsnorm_gated  eager      rocm   custom    hip              amd    
+  74  rmsnorm_gated  compile    rocm   custom    hip              amd    
+  75  rmsnorm_gated  cudagraph  rocm   custom    hip              amd    
+  76  rmsnorm_gated  eager      cpu    custom    cpp              cpu    
+  77  rmsnorm_gated  compile    cpu    custom    cpp              cpu    
+  78  rmsnorm_gated  eager      xpu    custom    sycl             intel  
+  79  rmsnorm_gated  compile    xpu    custom    sycl             intel  
+  80  rmsnorm_gated  eager      cuda   triton    triton_ptx       nvidia 
+  81  rmsnorm_gated  compile    cuda   triton    triton_ptx       nvidia 
+  82  rmsnorm_gated  cudagraph  cuda   triton    triton_ptx       nvidia 
+  83  rmsnorm_gated  eager      rocm   triton    triton_hip       amd    
+  84  rmsnorm_gated  compile    rocm   triton    triton_hip       amd    
+  85  rmsnorm_gated  cudagraph  rocm   triton    triton_hip       amd    
+  86  rmsnorm_gated  eager      xpu    triton    triton_xpu       intel  
+  87  rmsnorm_gated  compile    xpu    triton    triton_xpu       intel  
+
+### silu            (SiluAndMul)   — 29 chains
+  88  silu           eager      cuda   native    aten_cuda        nvidia 
+  89  silu           compile    cuda   native    inductor_triton  nvidia 
+  90  silu           cudagraph  cuda   native    inductor_triton  nvidia 
+  91  silu           eager      rocm   native    aten_rocm        amd    
+  92  silu           compile    rocm   native    inductor_triton  amd    
+  93  silu           cudagraph  rocm   native    inductor_triton  amd    
+  94  silu           eager      cpu    native    aten_cpu         cpu    
+  95  silu           compile    cpu    native    inductor_cpp     cpu    
+  96  silu           eager      xpu    native    aten_xpu         intel  
+  97  silu           compile    xpu    native    inductor_triton  intel  
+  98  silu           compile    tpu    native    xla              tpu    
+  99  silu           eager      cuda   custom    nvcc             nvidia 
+ 100  silu           compile    cuda   custom    nvcc             nvidia 
+ 101  silu           cudagraph  cuda   custom    nvcc             nvidia 
+ 102  silu           eager      rocm   custom    hip              amd    
+ 103  silu           compile    rocm   custom    hip              amd    
+ 104  silu           cudagraph  rocm   custom    hip              amd    
+ 105  silu           eager      cpu    custom    cpp              cpu    
+ 106  silu           compile    cpu    custom    cpp              cpu    
+ 107  silu           eager      xpu    custom    sycl             intel  
+ 108  silu           compile    xpu    custom    sycl             intel  
+ 109  silu           eager      cuda   triton    triton_ptx       nvidia 
+ 110  silu           compile    cuda   triton    triton_ptx       nvidia 
+ 111  silu           cudagraph  cuda   triton    triton_ptx       nvidia 
+ 112  silu           eager      rocm   triton    triton_hip       amd    
+ 113  silu           compile    rocm   triton    triton_hip       amd    
+ 114  silu           cudagraph  rocm   triton    triton_hip       amd    
+ 115  silu           eager      xpu    triton    triton_xpu       intel  
+ 116  silu           compile    xpu    triton    triton_xpu       intel  
+
+### gelu            (GeluAndMul)   — 29 chains
+ 117  gelu           eager      cuda   native    aten_cuda        nvidia 
+ 118  gelu           compile    cuda   native    inductor_triton  nvidia 
+ 119  gelu           cudagraph  cuda   native    inductor_triton  nvidia 
+ 120  gelu           eager      rocm   native    aten_rocm        amd    
+ 121  gelu           compile    rocm   native    inductor_triton  amd    
+ 122  gelu           cudagraph  rocm   native    inductor_triton  amd    
+ 123  gelu           eager      cpu    native    aten_cpu         cpu    
+ 124  gelu           compile    cpu    native    inductor_cpp     cpu    
+ 125  gelu           eager      xpu    native    aten_xpu         intel  
+ 126  gelu           compile    xpu    native    inductor_triton  intel  
+ 127  gelu           compile    tpu    native    xla              tpu    
+ 128  gelu           eager      cuda   custom    nvcc             nvidia 
+ 129  gelu           compile    cuda   custom    nvcc             nvidia 
+ 130  gelu           cudagraph  cuda   custom    nvcc             nvidia 
+ 131  gelu           eager      rocm   custom    hip              amd    
+ 132  gelu           compile    rocm   custom    hip              amd    
+ 133  gelu           cudagraph  rocm   custom    hip              amd    
+ 134  gelu           eager      cpu    custom    cpp              cpu    
+ 135  gelu           compile    cpu    custom    cpp              cpu    
+ 136  gelu           eager      xpu    custom    sycl             intel  
+ 137  gelu           compile    xpu    custom    sycl             intel  
+ 138  gelu           eager      cuda   triton    triton_ptx       nvidia 
+ 139  gelu           compile    cuda   triton    triton_ptx       nvidia 
+ 140  gelu           cudagraph  cuda   triton    triton_ptx       nvidia 
+ 141  gelu           eager      rocm   triton    triton_hip       amd    
+ 142  gelu           compile    rocm   triton    triton_hip       amd    
+ 143  gelu           cudagraph  rocm   triton    triton_hip       amd    
+ 144  gelu           eager      xpu    triton    triton_xpu       intel  
+ 145  gelu           compile    xpu    triton    triton_xpu       intel  
+
+### quick_gelu      (QuickGELU)   — 29 chains
+ 146  quick_gelu     eager      cuda   native    aten_cuda        nvidia 
+ 147  quick_gelu     compile    cuda   native    inductor_triton  nvidia 
+ 148  quick_gelu     cudagraph  cuda   native    inductor_triton  nvidia 
+ 149  quick_gelu     eager      rocm   native    aten_rocm        amd    
+ 150  quick_gelu     compile    rocm   native    inductor_triton  amd    
+ 151  quick_gelu     cudagraph  rocm   native    inductor_triton  amd    
+ 152  quick_gelu     eager      cpu    native    aten_cpu         cpu    
+ 153  quick_gelu     compile    cpu    native    inductor_cpp     cpu    
+ 154  quick_gelu     eager      xpu    native    aten_xpu         intel  
+ 155  quick_gelu     compile    xpu    native    inductor_triton  intel  
+ 156  quick_gelu     compile    tpu    native    xla              tpu    
+ 157  quick_gelu     eager      cuda   custom    nvcc             nvidia 
+ 158  quick_gelu     compile    cuda   custom    nvcc             nvidia 
+ 159  quick_gelu     cudagraph  cuda   custom    nvcc             nvidia 
+ 160  quick_gelu     eager      rocm   custom    hip              amd    
+ 161  quick_gelu     compile    rocm   custom    hip              amd    
+ 162  quick_gelu     cudagraph  rocm   custom    hip              amd    
+ 163  quick_gelu     eager      cpu    custom    cpp              cpu    
+ 164  quick_gelu     compile    cpu    custom    cpp              cpu    
+ 165  quick_gelu     eager      xpu    custom    sycl             intel  
+ 166  quick_gelu     compile    xpu    custom    sycl             intel  
+ 167  quick_gelu     eager      cuda   triton    triton_ptx       nvidia 
+ 168  quick_gelu     compile    cuda   triton    triton_ptx       nvidia 
+ 169  quick_gelu     cudagraph  cuda   triton    triton_ptx       nvidia 
+ 170  quick_gelu     eager      rocm   triton    triton_hip       amd    
+ 171  quick_gelu     compile    rocm   triton    triton_hip       amd    
+ 172  quick_gelu     cudagraph  rocm   triton    triton_hip       amd    
+ 173  quick_gelu     eager      xpu    triton    triton_xpu       intel  
+ 174  quick_gelu     compile    xpu    triton    triton_xpu       intel  
+
+### rope            (RotaryEmbedding)   — 27 chains
+ 175  rope           eager      cuda   native    aten_cuda        nvidia 
+ 176  rope           compile    cuda   native    inductor_triton  nvidia 
+ 177  rope           cudagraph  cuda   native    inductor_triton  nvidia 
+ 178  rope           eager      rocm   native    aten_rocm        amd    
+ 179  rope           compile    rocm   native    inductor_triton  amd    
+ 180  rope           cudagraph  rocm   native    inductor_triton  amd    
+ 181  rope           eager      cpu    native    aten_cpu         cpu    
+ 182  rope           compile    cpu    native    inductor_cpp     cpu    
+ 183  rope           eager      xpu    native    aten_xpu         intel  
+ 184  rope           compile    xpu    native    inductor_triton  intel  
+ 185  rope           compile    tpu    native    xla              tpu    
+ 186  rope           eager      cuda   custom    nvcc             nvidia 
+ 187  rope           compile    cuda   custom    nvcc             nvidia 
+ 188  rope           cudagraph  cuda   custom    nvcc             nvidia 
+ 189  rope           eager      rocm   custom    hip              amd    
+ 190  rope           compile    rocm   custom    hip              amd    
+ 191  rope           cudagraph  rocm   custom    hip              amd    
+ 192  rope           eager      cpu    custom    cpp              cpu    
+ 193  rope           compile    cpu    custom    cpp              cpu    
+ 194  rope           eager      cuda   triton    triton_ptx       nvidia 
+ 195  rope           compile    cuda   triton    triton_ptx       nvidia 
+ 196  rope           cudagraph  cuda   triton    triton_ptx       nvidia 
+ 197  rope           eager      rocm   triton    triton_hip       amd    
+ 198  rope           compile    rocm   triton    triton_hip       amd    
+ 199  rope           cudagraph  rocm   triton    triton_hip       amd    
+ 200  rope           eager      xpu    triton    triton_xpu       intel  
+ 201  rope           compile    xpu    triton    triton_xpu       intel  
+
+### attn            (Attention)   — 27 chains
+ 202  attn           eager      cuda   native    aten_cuda        nvidia 
+ 203  attn           compile    cuda   native    inductor_triton  nvidia 
+ 204  attn           cudagraph  cuda   native    inductor_triton  nvidia 
+ 205  attn           eager      cpu    native    aten_cpu         cpu    
+ 206  attn           compile    cpu    native    inductor_cpp     cpu    
+ 207  attn           compile    tpu    native    xla              tpu    
+ 208  attn           eager      cuda   custom    nvcc             nvidia 
+ 209  attn           compile    cuda   custom    nvcc             nvidia 
+ 210  attn           cudagraph  cuda   custom    nvcc             nvidia 
+ 211  attn           eager      rocm   custom    hip              amd    
+ 212  attn           compile    rocm   custom    hip              amd    
+ 213  attn           cudagraph  rocm   custom    hip              amd    
+ 214  attn           eager      cuda   triton    triton_ptx       nvidia 
+ 215  attn           compile    cuda   triton    triton_ptx       nvidia 
+ 216  attn           cudagraph  cuda   triton    triton_ptx       nvidia 
+ 217  attn           eager      rocm   triton    triton_hip       amd    
+ 218  attn           compile    rocm   triton    triton_hip       amd    
+ 219  attn           cudagraph  rocm   triton    triton_hip       amd    
+ 220  attn           eager      xpu    triton    triton_xpu       intel  
+ 221  attn           compile    xpu    triton    triton_xpu       intel  
+ 222  attn           eager      cuda   external  vendor           nvidia 
+ 223  attn           compile    cuda   external  vendor           nvidia 
+ 224  attn           cudagraph  cuda   external  vendor           nvidia 
+ 225  attn           eager      rocm   external  aiter            amd    
+ 226  attn           compile    rocm   external  aiter            amd    
+ 227  attn           cudagraph  rocm   external  aiter            amd    
+ 228  attn           compile    tpu    external  xla              tpu    
+
+### mla             (MLA)   — 18 chains
+ 229  mla            eager      cpu    native    aten_cpu         cpu    
+ 230  mla            compile    cpu    native    inductor_cpp     cpu    
+ 231  mla            compile    tpu    native    xla              tpu    
+ 232  mla            eager      cuda   custom    nvcc             nvidia 
+ 233  mla            compile    cuda   custom    nvcc             nvidia 
+ 234  mla            cudagraph  cuda   custom    nvcc             nvidia 
+ 235  mla            eager      cuda   triton    triton_ptx       nvidia 
+ 236  mla            compile    cuda   triton    triton_ptx       nvidia 
+ 237  mla            cudagraph  cuda   triton    triton_ptx       nvidia 
+ 238  mla            eager      rocm   triton    triton_hip       amd    
+ 239  mla            compile    rocm   triton    triton_hip       amd    
+ 240  mla            cudagraph  rocm   triton    triton_hip       amd    
+ 241  mla            eager      cuda   external  vendor           nvidia 
+ 242  mla            compile    cuda   external  vendor           nvidia 
+ 243  mla            cudagraph  cuda   external  vendor           nvidia 
+ 244  mla            eager      rocm   external  aiter            amd    
+ 245  mla            compile    rocm   external  aiter            amd    
+ 246  mla            cudagraph  rocm   external  aiter            amd    
+
+### embedding       (VocabParallelEmbedding)   — 11 chains
+ 247  embedding      eager      cuda   native    aten_cuda        nvidia 
+ 248  embedding      compile    cuda   native    inductor_triton  nvidia 
+ 249  embedding      cudagraph  cuda   native    inductor_triton  nvidia 
+ 250  embedding      eager      rocm   native    aten_rocm        amd    
+ 251  embedding      compile    rocm   native    inductor_triton  amd    
+ 252  embedding      cudagraph  rocm   native    inductor_triton  amd    
+ 253  embedding      eager      cpu    native    aten_cpu         cpu    
+ 254  embedding      compile    cpu    native    inductor_cpp     cpu    
+ 255  embedding      eager      xpu    native    aten_xpu         intel  
+ 256  embedding      compile    xpu    native    inductor_triton  intel  
+ 257  embedding      compile    tpu    native    xla              tpu    
+
+### linear          (Linear / GEMM)   — 29 chains
+ 258  linear         eager      cuda   native    aten_cuda        nvidia 
+ 259  linear         compile    cuda   native    inductor_triton  nvidia 
+ 260  linear         cudagraph  cuda   native    inductor_triton  nvidia 
+ 261  linear         eager      rocm   native    aten_rocm        amd    
+ 262  linear         compile    rocm   native    inductor_triton  amd    
+ 263  linear         cudagraph  rocm   native    inductor_triton  amd    
+ 264  linear         eager      cpu    native    aten_cpu         cpu    
+ 265  linear         compile    cpu    native    inductor_cpp     cpu    
+ 266  linear         eager      xpu    native    aten_xpu         intel  
+ 267  linear         compile    xpu    native    inductor_triton  intel  
+ 268  linear         compile    tpu    native    xla              tpu    
+ 269  linear         eager      cuda   custom    nvcc             nvidia 
+ 270  linear         compile    cuda   custom    nvcc             nvidia 
+ 271  linear         cudagraph  cuda   custom    nvcc             nvidia 
+ 272  linear         eager      cuda   triton    triton_ptx       nvidia 
+ 273  linear         compile    cuda   triton    triton_ptx       nvidia 
+ 274  linear         cudagraph  cuda   triton    triton_ptx       nvidia 
+ 275  linear         eager      rocm   triton    triton_hip       amd    
+ 276  linear         compile    rocm   triton    triton_hip       amd    
+ 277  linear         cudagraph  rocm   triton    triton_hip       amd    
+ 278  linear         eager      xpu    triton    triton_xpu       intel  
+ 279  linear         compile    xpu    triton    triton_xpu       intel  
+ 280  linear         eager      cuda   external  vendor           nvidia 
+ 281  linear         compile    cuda   external  vendor           nvidia 
+ 282  linear         cudagraph  cuda   external  vendor           nvidia 
+ 283  linear         eager      cpu    external  onednn           cpu    
+ 284  linear         compile    cpu    external  onednn           cpu    
+ 285  linear         eager      xpu    external  onednn           intel  
+ 286  linear         compile    xpu    external  onednn           intel  
+
+### scaled_mm       (cutlass_scaled_mm)   — 18 chains
+ 287  scaled_mm      eager      cuda   native    aten_cuda        nvidia 
+ 288  scaled_mm      compile    cuda   native    inductor_triton  nvidia 
+ 289  scaled_mm      cudagraph  cuda   native    inductor_triton  nvidia 
+ 290  scaled_mm      eager      rocm   native    aten_rocm        amd    
+ 291  scaled_mm      compile    rocm   native    inductor_triton  amd    
+ 292  scaled_mm      cudagraph  rocm   native    inductor_triton  amd    
+ 293  scaled_mm      eager      cpu    native    aten_cpu         cpu    
+ 294  scaled_mm      compile    cpu    native    inductor_cpp     cpu    
+ 295  scaled_mm      eager      cuda   custom    nvcc             nvidia 
+ 296  scaled_mm      compile    cuda   custom    nvcc             nvidia 
+ 297  scaled_mm      cudagraph  cuda   custom    nvcc             nvidia 
+ 298  scaled_mm      eager      cuda   external  vendor           nvidia 
+ 299  scaled_mm      compile    cuda   external  vendor           nvidia 
+ 300  scaled_mm      cudagraph  cuda   external  vendor           nvidia 
+ 301  scaled_mm      eager      cpu    external  onednn           cpu    
+ 302  scaled_mm      compile    cpu    external  onednn           cpu    
+ 303  scaled_mm      eager      xpu    external  onednn           intel  
+ 304  scaled_mm      compile    xpu    external  onednn           intel  
+
+### fp8_quant       (scaled_fp8_quant)   — 25 chains
+ 305  fp8_quant      eager      cuda   native    aten_cuda        nvidia 
+ 306  fp8_quant      compile    cuda   native    inductor_triton  nvidia 
+ 307  fp8_quant      cudagraph  cuda   native    inductor_triton  nvidia 
+ 308  fp8_quant      eager      rocm   native    aten_rocm        amd    
+ 309  fp8_quant      compile    rocm   native    inductor_triton  amd    
+ 310  fp8_quant      cudagraph  rocm   native    inductor_triton  amd    
+ 311  fp8_quant      eager      cpu    native    aten_cpu         cpu    
+ 312  fp8_quant      compile    cpu    native    inductor_cpp     cpu    
+ 313  fp8_quant      eager      xpu    native    aten_xpu         intel  
+ 314  fp8_quant      compile    xpu    native    inductor_triton  intel  
+ 315  fp8_quant      compile    tpu    native    xla              tpu    
+ 316  fp8_quant      eager      cuda   custom    nvcc             nvidia 
+ 317  fp8_quant      compile    cuda   custom    nvcc             nvidia 
+ 318  fp8_quant      cudagraph  cuda   custom    nvcc             nvidia 
+ 319  fp8_quant      eager      rocm   custom    hip              amd    
+ 320  fp8_quant      compile    rocm   custom    hip              amd    
+ 321  fp8_quant      cudagraph  rocm   custom    hip              amd    
+ 322  fp8_quant      eager      cuda   triton    triton_ptx       nvidia 
+ 323  fp8_quant      compile    cuda   triton    triton_ptx       nvidia 
+ 324  fp8_quant      cudagraph  cuda   triton    triton_ptx       nvidia 
+ 325  fp8_quant      eager      rocm   triton    triton_hip       amd    
+ 326  fp8_quant      compile    rocm   triton    triton_hip       amd    
+ 327  fp8_quant      cudagraph  rocm   triton    triton_hip       amd    
+ 328  fp8_quant      eager      xpu    triton    triton_xpu       intel  
+ 329  fp8_quant      compile    xpu    triton    triton_xpu       intel  
+
+### int8_quant      (scaled_int8_quant)   — 25 chains
+ 330  int8_quant     eager      cuda   native    aten_cuda        nvidia 
+ 331  int8_quant     compile    cuda   native    inductor_triton  nvidia 
+ 332  int8_quant     cudagraph  cuda   native    inductor_triton  nvidia 
+ 333  int8_quant     eager      rocm   native    aten_rocm        amd    
+ 334  int8_quant     compile    rocm   native    inductor_triton  amd    
+ 335  int8_quant     cudagraph  rocm   native    inductor_triton  amd    
+ 336  int8_quant     eager      cpu    native    aten_cpu         cpu    
+ 337  int8_quant     compile    cpu    native    inductor_cpp     cpu    
+ 338  int8_quant     eager      xpu    native    aten_xpu         intel  
+ 339  int8_quant     compile    xpu    native    inductor_triton  intel  
+ 340  int8_quant     compile    tpu    native    xla              tpu    
+ 341  int8_quant     eager      cuda   custom    nvcc             nvidia 
+ 342  int8_quant     compile    cuda   custom    nvcc             nvidia 
+ 343  int8_quant     cudagraph  cuda   custom    nvcc             nvidia 
+ 344  int8_quant     eager      rocm   custom    hip              amd    
+ 345  int8_quant     compile    rocm   custom    hip              amd    
+ 346  int8_quant     cudagraph  rocm   custom    hip              amd    
+ 347  int8_quant     eager      cuda   triton    triton_ptx       nvidia 
+ 348  int8_quant     compile    cuda   triton    triton_ptx       nvidia 
+ 349  int8_quant     cudagraph  cuda   triton    triton_ptx       nvidia 
+ 350  int8_quant     eager      rocm   triton    triton_hip       amd    
+ 351  int8_quant     compile    rocm   triton    triton_hip       amd    
+ 352  int8_quant     cudagraph  rocm   triton    triton_hip       amd    
+ 353  int8_quant     eager      xpu    triton    triton_xpu       intel  
+ 354  int8_quant     compile    xpu    triton    triton_xpu       intel  
+
+### moe             (FusedMoE)   — 29 chains
+ 355  moe            eager      cuda   native    aten_cuda        nvidia 
+ 356  moe            compile    cuda   native    inductor_triton  nvidia 
+ 357  moe            cudagraph  cuda   native    inductor_triton  nvidia 
+ 358  moe            eager      rocm   native    aten_rocm        amd    
+ 359  moe            compile    rocm   native    inductor_triton  amd    
+ 360  moe            cudagraph  rocm   native    inductor_triton  amd    
+ 361  moe            eager      cpu    native    aten_cpu         cpu    
+ 362  moe            compile    cpu    native    inductor_cpp     cpu    
+ 363  moe            eager      xpu    native    aten_xpu         intel  
+ 364  moe            compile    xpu    native    inductor_triton  intel  
+ 365  moe            compile    tpu    native    xla              tpu    
+ 366  moe            eager      cuda   custom    nvcc             nvidia 
+ 367  moe            compile    cuda   custom    nvcc             nvidia 
+ 368  moe            cudagraph  cuda   custom    nvcc             nvidia 
+ 369  moe            eager      cuda   triton    triton_ptx       nvidia 
+ 370  moe            compile    cuda   triton    triton_ptx       nvidia 
+ 371  moe            cudagraph  cuda   triton    triton_ptx       nvidia 
+ 372  moe            eager      rocm   triton    triton_hip       amd    
+ 373  moe            compile    rocm   triton    triton_hip       amd    
+ 374  moe            cudagraph  rocm   triton    triton_hip       amd    
+ 375  moe            eager      xpu    triton    triton_xpu       intel  
+ 376  moe            compile    xpu    triton    triton_xpu       intel  
+ 377  moe            eager      cuda   external  vendor           nvidia 
+ 378  moe            compile    cuda   external  vendor           nvidia 
+ 379  moe            cudagraph  cuda   external  vendor           nvidia 
+ 380  moe            eager      rocm   external  aiter            amd    
+ 381  moe            compile    rocm   external  aiter            amd    
+ 382  moe            cudagraph  rocm   external  aiter            amd    
+ 383  moe            compile    tpu    external  xla              tpu    
+
+### reshape_cache   (reshape_and_cache)   — 25 chains
+ 384  reshape_cache  eager      cuda   native    aten_cuda        nvidia 
+ 385  reshape_cache  compile    cuda   native    inductor_triton  nvidia 
+ 386  reshape_cache  cudagraph  cuda   native    inductor_triton  nvidia 
+ 387  reshape_cache  eager      rocm   native    aten_rocm        amd    
+ 388  reshape_cache  compile    rocm   native    inductor_triton  amd    
+ 389  reshape_cache  cudagraph  rocm   native    inductor_triton  amd    
+ 390  reshape_cache  eager      cpu    native    aten_cpu         cpu    
+ 391  reshape_cache  compile    cpu    native    inductor_cpp     cpu    
+ 392  reshape_cache  eager      xpu    native    aten_xpu         intel  
+ 393  reshape_cache  compile    xpu    native    inductor_triton  intel  
+ 394  reshape_cache  compile    tpu    native    xla              tpu    
+ 395  reshape_cache  eager      cuda   custom    nvcc             nvidia 
+ 396  reshape_cache  compile    cuda   custom    nvcc             nvidia 
+ 397  reshape_cache  cudagraph  cuda   custom    nvcc             nvidia 
+ 398  reshape_cache  eager      rocm   custom    hip              amd    
+ 399  reshape_cache  compile    rocm   custom    hip              amd    
+ 400  reshape_cache  cudagraph  rocm   custom    hip              amd    
+ 401  reshape_cache  eager      cuda   triton    triton_ptx       nvidia 
+ 402  reshape_cache  compile    cuda   triton    triton_ptx       nvidia 
+ 403  reshape_cache  cudagraph  cuda   triton    triton_ptx       nvidia 
+ 404  reshape_cache  eager      rocm   triton    triton_hip       amd    
+ 405  reshape_cache  compile    rocm   triton    triton_hip       amd    
+ 406  reshape_cache  cudagraph  rocm   triton    triton_hip       amd    
+ 407  reshape_cache  eager      xpu    triton    triton_xpu       intel  
+ 408  reshape_cache  compile    xpu    triton    triton_xpu       intel  
+
+### causal_conv1d   (causal_conv1d)   — 18 chains
+ 409  causal_conv1d  eager      cuda   native    aten_cuda        nvidia 
+ 410  causal_conv1d  compile    cuda   native    inductor_triton  nvidia 
+ 411  causal_conv1d  cudagraph  cuda   native    inductor_triton  nvidia 
+ 412  causal_conv1d  eager      rocm   native    aten_rocm        amd    
+ 413  causal_conv1d  compile    rocm   native    inductor_triton  amd    
+ 414  causal_conv1d  cudagraph  rocm   native    inductor_triton  amd    
+ 415  causal_conv1d  eager      cpu    native    aten_cpu         cpu    
+ 416  causal_conv1d  compile    cpu    native    inductor_cpp     cpu    
+ 417  causal_conv1d  compile    tpu    native    xla              tpu    
+ 418  causal_conv1d  eager      cuda   custom    nvcc             nvidia 
+ 419  causal_conv1d  compile    cuda   custom    nvcc             nvidia 
+ 420  causal_conv1d  cudagraph  cuda   custom    nvcc             nvidia 
+ 421  causal_conv1d  eager      cuda   triton    triton_ptx       nvidia 
+ 422  causal_conv1d  compile    cuda   triton    triton_ptx       nvidia 
+ 423  causal_conv1d  cudagraph  cuda   triton    triton_ptx       nvidia 
+ 424  causal_conv1d  eager      rocm   triton    triton_hip       amd    
+ 425  causal_conv1d  compile    rocm   triton    triton_hip       amd    
+ 426  causal_conv1d  cudagraph  rocm   triton    triton_hip       amd    
+
+### mamba_ssm       (selective_scan / chunk_scan)   — 18 chains
+ 427  mamba_ssm      eager      cuda   native    aten_cuda        nvidia 
+ 428  mamba_ssm      compile    cuda   native    inductor_triton  nvidia 
+ 429  mamba_ssm      cudagraph  cuda   native    inductor_triton  nvidia 
+ 430  mamba_ssm      eager      rocm   native    aten_rocm        amd    
+ 431  mamba_ssm      compile    rocm   native    inductor_triton  amd    
+ 432  mamba_ssm      cudagraph  rocm   native    inductor_triton  amd    
+ 433  mamba_ssm      eager      cpu    native    aten_cpu         cpu    
+ 434  mamba_ssm      compile    cpu    native    inductor_cpp     cpu    
+ 435  mamba_ssm      compile    tpu    native    xla              tpu    
+ 436  mamba_ssm      eager      cuda   custom    nvcc             nvidia 
+ 437  mamba_ssm      compile    cuda   custom    nvcc             nvidia 
+ 438  mamba_ssm      cudagraph  cuda   custom    nvcc             nvidia 
+ 439  mamba_ssm      eager      cuda   triton    triton_ptx       nvidia 
+ 440  mamba_ssm      compile    cuda   triton    triton_ptx       nvidia 
+ 441  mamba_ssm      cudagraph  cuda   triton    triton_ptx       nvidia 
+ 442  mamba_ssm      eager      rocm   triton    triton_hip       amd    
+ 443  mamba_ssm      compile    rocm   triton    triton_hip       amd    
+ 444  mamba_ssm      cudagraph  rocm   triton    triton_hip       amd    
+
+### lora            (LoRA shrink/expand)   — 21 chains
+ 445  lora           eager      cuda   native    aten_cuda        nvidia 
+ 446  lora           compile    cuda   native    inductor_triton  nvidia 
+ 447  lora           cudagraph  cuda   native    inductor_triton  nvidia 
+ 448  lora           eager      rocm   native    aten_rocm        amd    
+ 449  lora           compile    rocm   native    inductor_triton  amd    
+ 450  lora           cudagraph  rocm   native    inductor_triton  amd    
+ 451  lora           eager      cpu    native    aten_cpu         cpu    
+ 452  lora           compile    cpu    native    inductor_cpp     cpu    
+ 453  lora           eager      xpu    native    aten_xpu         intel  
+ 454  lora           compile    xpu    native    inductor_triton  intel  
+ 455  lora           compile    tpu    native    xla              tpu    
+ 456  lora           eager      xpu    custom    sycl             intel  
+ 457  lora           compile    xpu    custom    sycl             intel  
+ 458  lora           eager      cuda   triton    triton_ptx       nvidia 
+ 459  lora           compile    cuda   triton    triton_ptx       nvidia 
+ 460  lora           cudagraph  cuda   triton    triton_ptx       nvidia 
+ 461  lora           eager      rocm   triton    triton_hip       amd    
+ 462  lora           compile    rocm   triton    triton_hip       amd    
+ 463  lora           cudagraph  rocm   triton    triton_hip       amd    
+ 464  lora           eager      xpu    triton    triton_xpu       intel  
+ 465  lora           compile    xpu    triton    triton_xpu       intel  
+
+### sampler         (TopK/TopP sampler)   — 14 chains
+ 466  sampler        eager      cuda   native    aten_cuda        nvidia 
+ 467  sampler        compile    cuda   native    inductor_triton  nvidia 
+ 468  sampler        cudagraph  cuda   native    inductor_triton  nvidia 
+ 469  sampler        eager      rocm   native    aten_rocm        amd    
+ 470  sampler        compile    rocm   native    inductor_triton  amd    
+ 471  sampler        cudagraph  rocm   native    inductor_triton  amd    
+ 472  sampler        eager      cpu    native    aten_cpu         cpu    
+ 473  sampler        compile    cpu    native    inductor_cpp     cpu    
+ 474  sampler        eager      xpu    native    aten_xpu         intel  
+ 475  sampler        compile    xpu    native    inductor_triton  intel  
+ 476  sampler        compile    tpu    native    xla              tpu    
+ 477  sampler        eager      cuda   external  vendor           nvidia 
+ 478  sampler        compile    cuda   external  vendor           nvidia 
+ 479  sampler        cudagraph  cuda   external  vendor           nvidia 
+
+### allreduce       (AllReduce)   — 17 chains
+ 480  allreduce      eager      cuda   native    ccl_nccl         nvidia 
+ 481  allreduce      compile    cuda   native    ccl_nccl         nvidia 
+ 482  allreduce      cudagraph  cuda   native    ccl_nccl         nvidia 
+ 483  allreduce      eager      rocm   native    ccl_rccl         amd    
+ 484  allreduce      compile    rocm   native    ccl_rccl         amd    
+ 485  allreduce      cudagraph  rocm   native    ccl_rccl         amd    
+ 486  allreduce      eager      cpu    native    ccl_gloo         cpu    
+ 487  allreduce      compile    cpu    native    ccl_gloo         cpu    
+ 488  allreduce      eager      cuda   custom    nvcc             nvidia 
+ 489  allreduce      compile    cuda   custom    nvcc             nvidia 
+ 490  allreduce      cudagraph  cuda   custom    nvcc             nvidia 
+ 491  allreduce      eager      rocm   custom    hip              amd    
+ 492  allreduce      compile    rocm   custom    hip              amd    
+ 493  allreduce      cudagraph  rocm   custom    hip              amd    
+ 494  allreduce      eager      cuda   external  vendor           nvidia 
+ 495  allreduce      compile    cuda   external  vendor           nvidia 
+ 496  allreduce      cudagraph  cuda   external  vendor           nvidia 
+
+### allgather       (AllGather)   — 14 chains
+ 497  allgather      eager      cuda   native    ccl_nccl         nvidia 
+ 498  allgather      compile    cuda   native    ccl_nccl         nvidia 
+ 499  allgather      cudagraph  cuda   native    ccl_nccl         nvidia 
+ 500  allgather      eager      rocm   native    ccl_rccl         amd    
+ 501  allgather      compile    rocm   native    ccl_rccl         amd    
+ 502  allgather      cudagraph  rocm   native    ccl_rccl         amd    
+ 503  allgather      eager      cpu    native    ccl_gloo         cpu    
+ 504  allgather      compile    cpu    native    ccl_gloo         cpu    
+ 505  allgather      eager      xpu    native    ccl_xccl         intel  
+ 506  allgather      compile    xpu    native    ccl_xccl         intel  
+ 507  allgather      compile    tpu    native    ccl_xla          tpu    
+ 508  allgather      eager      cuda   custom    nvcc             nvidia 
+ 509  allgather      compile    cuda   custom    nvcc             nvidia 
+ 510  allgather      cudagraph  cuda   custom    nvcc             nvidia 
+
+### reduce_scatter  (ReduceScatter)   — 10 chains
+ 511  reduce_scatter eager      cuda   native    ccl_nccl         nvidia 
+ 512  reduce_scatter compile    cuda   native    ccl_nccl         nvidia 
+ 513  reduce_scatter cudagraph  cuda   native    ccl_nccl         nvidia 
+ 514  reduce_scatter eager      rocm   native    ccl_rccl         amd    
+ 515  reduce_scatter compile    rocm   native    ccl_rccl         amd    
+ 516  reduce_scatter cudagraph  rocm   native    ccl_rccl         amd    
+ 517  reduce_scatter eager      cpu    native    ccl_gloo         cpu    
+ 518  reduce_scatter compile    cpu    native    ccl_gloo         cpu    
+ 519  reduce_scatter eager      xpu    native    ccl_xccl         intel  
+ 520  reduce_scatter compile    xpu    native    ccl_xccl         intel  
+
+### ep_a2a          (EP dispatch/combine)   — 9 chains
+ 521  ep_a2a         eager      cuda   native    ccl_nccl         nvidia 
+ 522  ep_a2a         compile    cuda   native    ccl_nccl         nvidia 
+ 523  ep_a2a         cudagraph  cuda   native    ccl_nccl         nvidia 
+ 524  ep_a2a         eager      rocm   native    ccl_rccl         amd    
+ 525  ep_a2a         compile    rocm   native    ccl_rccl         amd    
+ 526  ep_a2a         cudagraph  rocm   native    ccl_rccl         amd    
+ 527  ep_a2a         eager      cuda   external  vendor           nvidia 
+ 528  ep_a2a         compile    cuda   external  vendor           nvidia 
+ 529  ep_a2a         cudagraph  cuda   external  vendor           nvidia 
+
+============================================================================================
+TOTAL: 529 combinations across 24 ops
+
+VALIDATION
+--------------------------------------------------------------------------------------------
+result: ALL PASS  (0 error(s))
+dead backend nodes: none
+
+per-op chain counts:
+  rmsnorm          29
+  gemma_rmsnorm    29
+  rmsnorm_gated    29
+  silu             29
+  gelu             29
+  quick_gelu       29
+  rope             27
+  attn             27
+  mla              18
+  embedding        11
+  linear           29
+  scaled_mm        18
+  fp8_quant        25
+  int8_quant       25
+  moe              29
+  reshape_cache    25
+  causal_conv1d    18
+  mamba_ssm        18
+  lora             21
+  sampler          14
+  allreduce        17
+  allgather        14
+  reduce_scatter   10
+  ep_a2a            9

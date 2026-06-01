@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vLLM Lowering-Path Explorer</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel2: #1e222b;
+    --ink: #e7ebf0;
+    --muted: #8b93a1;
+    --line: #2a2f3a;
+    --accent: #5b8cff;
+    --accent-soft: #233056;
+    --sel: #f0b24a;
+    --sel-soft: #4a3a16;
+    --dim: #3a3f4b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding-bottom: 46vh;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    padding: 18px 24px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  h1 { margin: 0 0 4px; font-size: 18px; letter-spacing: .2px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .wrap { padding: 16px 24px 60px; max-width: 1200px; margin: 0 auto; }
+
+  /* toolbar */
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px;
+  }
+  .toolbar .grp { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .toolbar label { color: var(--muted); font-size: 12px; }
+  .layerToggle { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink);
+    background: var(--panel2); border: 1px solid var(--line); padding: 3px 8px; border-radius: 999px; cursor: pointer; }
+  .layerToggle input { accent-color: var(--accent); margin: 0; }
+  .layerToggle.off { opacity: .45; }
+  button.btn {
+    background: var(--accent-soft); color: var(--ink); border: 1px solid var(--accent);
+    border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px;
+  }
+  button.btn:hover { background: #2c3c6b; }
+
+  /* breadcrumb */
+  .chain {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 18px; min-height: 42px;
+  }
+  .chain .crumb {
+    background: var(--sel-soft); color: var(--sel); border: 1px solid var(--sel);
+    border-radius: 6px; padding: 2px 9px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  .chain .arrow { color: var(--muted); }
+  .chain .hint { color: var(--muted); font-size: 12px; }
+  .chain .count { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .chain .count b { color: var(--ink); }
+
+  /* layers */
+  .layer { margin-bottom: 14px; }
+  .layer.hidden { display: none; }
+  .layer-head {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px;
+  }
+  .layer-idx {
+    font-size: 11px; color: var(--muted); background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 5px; padding: 1px 7px; font-variant-numeric: tabular-nums;
+  }
+  .layer-title { font-size: 13px; font-weight: 600; }
+  .layer-desc { font-size: 12px; color: var(--muted); }
+  .nodes { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .node {
+    position: relative;
+    background: var(--panel2); border: 1px solid var(--line); color: var(--ink);
+    border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 13px;
+    transition: background .12s, border-color .12s, opacity .12s, transform .05s;
+    user-select: none;
+  }
+  .node small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .node:hover { transform: translateY(-1px); }
+  .node.available { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-soft) inset; }
+  .node.available small { color: #9fb4e8; }
+  .node.selected {
+    background: var(--sel-soft); border-color: var(--sel); color: #ffe6b0;
+    box-shadow: 0 0 0 1px var(--sel) inset;
+  }
+  .node.selected small { color: var(--sel); }
+  .node.dim { opacity: .32; cursor: not-allowed; }
+  .node.dim:hover { transform: none; }
+
+  /* connector strip between layers */
+  .connector { height: 14px; position: relative; }
+  .connector::before {
+    content: ""; position: absolute; left: 18px; top: 0; bottom: 0; width: 2px;
+    background: linear-gradient(var(--line), var(--line));
+  }
+  .legend { margin-top: 22px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+  .legend code { background: var(--panel2); border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+  .pill { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:-1px; margin-right:4px; border:1px solid; }
+  .pill.sel { background: var(--sel-soft); border-color: var(--sel); }
+  .pill.av  { background: var(--panel2); border-color: var(--accent); }
+  .pill.dm  { background: var(--panel2); border-color: var(--line); opacity:.4; }
+
+  /* bottom reference drawer */
+  .refpanel {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    background: var(--panel); border-top: 1px solid var(--accent);
+    box-shadow: 0 -8px 24px rgba(0,0,0,.45);
+    max-height: 42vh; display: flex; flex-direction: column;
+  }
+  .refpanel .rphead {
+    display: flex; align-items: center; gap: 12px; padding: 8px 24px;
+    border-bottom: 1px solid var(--line); cursor: pointer; flex: 0 0 auto;
+  }
+  .refpanel .rptitle { font-size: 13px; font-weight: 600; }
+  .refpanel .rpsub { color: var(--muted); font-size: 12px; }
+  .refpanel .rpchev { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .refpanel.collapsed .rpbody { display: none; }
+  .refpanel .rpbody { overflow: auto; padding: 6px 24px 14px; }
+  .refgroup { margin-top: 10px; }
+  .refgroup h4 {
+    margin: 0 0 5px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--accent);
+  }
+  .refrow {
+    display: flex; gap: 10px; align-items: baseline; padding: 2px 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px;
+  }
+  .refrow .loc {
+    color: var(--sel); cursor: copy; white-space: nowrap; border-bottom: 1px dotted transparent;
+  }
+  .refrow .loc:hover { border-bottom-color: var(--sel); }
+  .refrow .loc.copied { color: #6ee7a8; }
+  .refrow .desc { color: var(--muted); font-family: inherit; }
+  .refempty { color: var(--muted); font-size: 12px; padding: 8px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>vLLM Lowering-Path Explorer</h1>
+  <div class="sub">Pick a layer/op at the top — every compatible lowering chain lights up below. Keep choosing to narrow to a single path. Toggle layers on/off to flex the depth.</div>
+</header>
+
+<div class="wrap">
+  <div class="toolbar">
+    <div class="grp">
+      <label>Layers:</label>
+      <span id="layerToggles"></span>
+    </div>
+    <div class="grp" style="margin-left:auto;">
+      <button class="btn" id="copyBtn">Copy chains</button>
+      <button class="btn" id="resetBtn">Reset selections</button>
+    </div>
+  </div>
+
+  <div class="chain" id="chain"></div>
+
+  <div id="layers"></div>
+
+  <div class="legend" id="legend">
+    <div style="margin-bottom:6px;">
+      <span class="pill sel"></span> selected &nbsp;&nbsp;
+      <span class="pill av"></span> available (part of a compatible chain) &nbsp;&nbsp;
+      <span class="pill dm"></span> excluded by current choices
+    </div>
+    <b>How to read it.</b> The axes are <i>mostly</i> orthogonal. For <b>Custom / Triton / External</b> kernels, <code>Execution mode</code> changes only <i>how</i> the kernel is launched (CUDA-graph replay, fusion <i>around</i> it) — they're opaque to <code>torch.compile</code>, so Source/Backend/Hardware stay put. The <b>exception is Native ops</b>: <code>torch.compile</code> replaces ATen eager dispatch with <b>Inductor codegen</b> (Triton on GPU, C++/OpenMP on CPU), so the mechanism row <i>does</i> change — which is why <code>Eager</code> is the only mode that pairs with an <code>ATen-… dispatch</code> backend. <code>Platform</code> gates which Sources &amp; mechanisms exist; <code>Backend</code> and <code>Hardware</code> are <i>derived</i> from Source + Platform (+ mode, for native).
+  </div>
+</div>
+
+<div class="refpanel" id="refpanel">
+  <div class="rphead" id="rphead">
+    <span class="rptitle">Source references</span>
+    <span class="rpsub" id="rpsub"></span>
+    <span class="rpchev" id="rpchev">▼ click to collapse</span>
+  </div>
+  <div class="rpbody" id="rpbody"></div>
+</div>
+
+<script>
+/* ----------------------------------------------------------------------------
+ * Layer definitions (data-driven — add/remove entries here to change depth).
+ * Each layer: id, title, desc, and the ordered label map for its nodes.
+ * -------------------------------------------------------------------------- */
+const LAYERS = [
+  { id: "op", title: "Layer / Op", desc: "the model component you call",
+    labels: {
+      // norm / activation
+      rmsnorm:       ["RMSNorm", "norm"],
+      gemma_rmsnorm: ["GemmaRMSNorm", "norm"],
+      rmsnorm_gated: ["RMSNormGated", "norm · Mamba"],
+      silu:          ["SiluAndMul", "activation"],
+      gelu:          ["GeluAndMul", "activation"],
+      quick_gelu:    ["QuickGELU", "activation"],
+      // positional / attention
+      rope:          ["RotaryEmbedding", "RoPE"],
+      attn:          ["Attention", "paged attention"],
+      mla:           ["MLA", "latent attention"],
+      // embedding
+      embedding:     ["VocabParallelEmbedding", "embedding gather"],
+      // gemm / quant
+      linear:        ["Linear / GEMM", "matmul"],
+      scaled_mm:     ["cutlass_scaled_mm", "quant GEMM"],
+      fp8_quant:     ["scaled_fp8_quant", "quantize"],
+      int8_quant:    ["scaled_int8_quant", "quantize"],
+      // moe
+      moe:           ["FusedMoE", "experts"],
+      // kv cache
+      reshape_cache: ["reshape_and_cache", "KV write"],
+      // mamba / ssm
+      causal_conv1d: ["causal_conv1d", "SSM conv"],
+      mamba_ssm:     ["selective_scan / chunk_scan", "SSM"],
+      // lora
+      lora:          ["LoRA shrink/expand", "adapters"],
+      // sampling
+      sampler:       ["TopK/TopP sampler", "sampling"],
+      // collectives
+      allreduce:     ["AllReduce", "TP comms"],
+      allgather:     ["AllGather", "TP/SP comms"],
+      reduce_scatter:["ReduceScatter", "SP comms"],
+      ep_a2a:        ["EP dispatch/combine", "expert-parallel all2all"],
+    }},
+  { id: "mode", title: "Execution mode", desc: "graph strategy — orthogonal to which kernel runs",
+    labels: {
+      eager:     ["Eager", "Python drives each op"],
+      compile:   ["torch.compile", "Dynamo → FX → Inductor"],
+      cudagraph: ["+ CUDA graph", "record / replay launch"],
+    }},
+  { id: "platform", title: "Platform", desc: "gates which sources & backends exist",
+    labels: {
+      cuda: ["CUDA", "NVIDIA"],
+      rocm: ["ROCm", "AMD"],
+      cpu:  ["CPU", "x86 / ARM"],
+      xpu:  ["XPU", "Intel GPU"],
+      tpu:  ["TPU", "via tpu_inference"],
+    }},
+  { id: "source", title: "Implementation source", desc: "how the op resolves to a kernel (the real diversity)",
+    labels: {
+      native:   ["Native / ATen", "forward_native"],
+      custom:   ["Custom C++/CUDA", "torch.ops._C.*"],
+      triton:   ["Hand-written Triton", "@triton.jit"],
+      external: ["External library", "vendor kernels"],
+    }},
+  { id: "backend", title: "Compile / launch mechanism", desc: "HOW the kernel is compiled & launched (DERIVED from source + platform)",
+    labels: {
+      // ATen eager dispatch — torch's own kernels; library backing GEMM noted in the sublabel
+      aten_cuda:  ["ATen-CUDA dispatch", "torch eager kernels · GEMM→cuBLAS/cuDNN"],
+      aten_rocm:  ["ATen-HIP dispatch", "torch eager kernels · GEMM→rocBLAS/MIOpen"],
+      aten_cpu:   ["ATen-CPU dispatch", "torch vectorized C++ · GEMM→oneDNN/MKL"],
+      aten_xpu:   ["ATen-XPU dispatch", "torch SYCL kernels · GEMM→oneDNN"],
+      // torch.compile replaces ATen dispatch for native ops with Inductor codegen
+      inductor_triton: ["Inductor → Triton", "FX codegen · PTX / HIP / SPIR-V"],
+      inductor_cpp:    ["Inductor → C++/OpenMP", "FX codegen · CPU"],
+      // prebuilt custom ops via the torch dispatcher (compiled at build time)
+      nvcc:       ["Prebuilt CUDA op", "csrc/*.cu → NVCC → SASS, via torch.ops._C"],
+      hip:        ["Prebuilt HIP op", "csrc → HIP → rocgfx, via torch.ops._C"],
+      cpp:        ["Prebuilt CPU op", "csrc/cpu → C++ (gcc/clang), via torch.ops._C"],
+      sycl:       ["Prebuilt XPU op", "SYCL / oneAPI, via torch.ops"],
+      // Triton's own JIT compiler + runtime (bypasses the torch dispatcher)
+      triton_ptx: ["Triton → PTX", "JIT compiler · NVIDIA"],
+      triton_hip: ["Triton → HIP", "JIT compiler · AMD"],
+      triton_xpu: ["Triton → SPIR-V", "JIT compiler · Intel"],
+      // external library's own build/JIT + runtime
+      vendor:     ["External: vendor", "flash-attn / flashinfer / CUTLASS / Marlin / DeepGEMM"],
+      aiter:      ["External: AITER", "AMD Infinity tensor runtime"],
+      onednn:     ["External: oneDNN", "direct oneDNN (vLLM csrc/cpu)"],
+      // graph compiler
+      xla:        ["XLA compile", "→ StableHLO / MLIR (TPU)"],
+      // collective runtime — platform-specific library
+      ccl_nccl:   ["NCCL collective", "NVIDIA · torch.distributed"],
+      ccl_rccl:   ["RCCL collective", "AMD · torch.distributed"],
+      ccl_gloo:   ["Gloo collective", "CPU · torch.distributed"],
+      ccl_xccl:   ["XCCL collective", "Intel · oneCCL"],
+      ccl_xla:    ["XLA collective", "TPU · XLA all-reduce / all-gather"],
+    }},
+  { id: "hardware", title: "Hardware target", desc: "DERIVED from platform",
+    labels: {
+      nvidia: ["NVIDIA GPU", "SASS"],
+      amd:    ["AMD GPU", "rocgfx"],
+      cpu:    ["CPU", "machine code"],
+      intel:  ["Intel GPU", "Level Zero"],
+      tpu:    ["TPU", "XLA executable"],
+    }},
+];
+
+/* ----------------------------------------------------------------------------
+ * Path generation from compact rules (so depth/coverage stay maintainable).
+ * Per op we declare which platforms each source supports; backend + hardware
+ * are derived. Modes are gated by platform.
+ * -------------------------------------------------------------------------- */
+const HW = { cuda:"nvidia", rocm:"amd", cpu:"cpu", xpu:"intel", tpu:"tpu" };
+const MODES = {
+  cuda: ["eager","compile","cudagraph"],
+  rocm: ["eager","compile","cudagraph"],
+  cpu:  ["eager","compile"],
+  xpu:  ["eager","compile"],
+  tpu:  ["compile"],   // XLA always compiles
+};
+
+const COMM = new Set(["allreduce", "allgather", "reduce_scatter", "ep_a2a"]);
+const isCompiled = (mode) => mode === "compile" || mode === "cudagraph";
+function backendOf(op, source, plat, mode) {
+  if (COMM.has(op)) {
+    if (source === "native")                     // platform-specific collective library
+      return { cuda:"ccl_nccl", rocm:"ccl_rccl", cpu:"ccl_gloo", xpu:"ccl_xccl", tpu:"ccl_xla" }[plat];
+    if (source === "external") return "vendor";  // flashinfer AR+RMS / DeepEP / pplx
+    // custom falls through to per-platform custom backend
+  }
+  switch (source) {
+    case "native":
+      // torch.compile REPLACES eager ATen dispatch with Inductor codegen for native ops
+      if (plat === "tpu") return "xla";                         // XLA always compiles
+      if (isCompiled(mode)) return plat === "cpu" ? "inductor_cpp" : "inductor_triton";
+      return { cuda:"aten_cuda", rocm:"aten_rocm", cpu:"aten_cpu", xpu:"aten_xpu" }[plat];
+    case "custom":
+      return { cuda:"nvcc", rocm:"hip", cpu:"cpp", xpu:"sycl" }[plat];
+    case "triton":
+      return { cuda:"triton_ptx", rocm:"triton_hip", xpu:"triton_xpu" }[plat];
+    case "external":
+      if (plat === "cuda") return "vendor";
+      if (plat === "rocm") return "aiter";
+      if (plat === "cpu" || plat === "xpu") return "onednn";
+      if (plat === "tpu") return "xla";   // Pallas via XLA/Mosaic
+  }
+  return null;
+}
+
+// op -> source -> [platforms supported]
+const ELEMENTWISE = {            // shared shape for norm / activation ops
+  native: ["cuda","rocm","cpu","xpu","tpu"],
+  custom: ["cuda","rocm","cpu","xpu"],
+  triton: ["cuda","rocm","xpu"],
+};
+const SUPPORT = {
+  // --- norm / activation (all share the elementwise shape) ---
+  rmsnorm:       ELEMENTWISE,
+  gemma_rmsnorm: ELEMENTWISE,
+  rmsnorm_gated: ELEMENTWISE,
+  silu:          ELEMENTWISE,
+  gelu:          ELEMENTWISE,
+  quick_gelu:    ELEMENTWISE,
+
+  // --- positional / attention ---
+  rope: {
+    native:   ["cuda","rocm","cpu","xpu","tpu"],
+    custom:   ["cuda","rocm","cpu"],
+    triton:   ["cuda","rocm","xpu"],
+  },
+  attn: {
+    native:   ["cuda","cpu","tpu"],          // FlexAttention / CPU_ATTN / XLA
+    custom:   ["cuda","rocm"],               // paged_attention v1/v2
+    triton:   ["cuda","rocm","xpu"],         // TRITON_ATTN / TRITON_MLA
+    external: ["cuda","rocm","tpu"],         // flash-attn/flashinfer/FlashMLA/CUTLASS-MLA; AITER; Pallas
+  },
+  mla: {
+    native:   ["cpu","tpu"],
+    custom:   ["cuda"],
+    triton:   ["cuda","rocm"],               // TRITON_MLA
+    external: ["cuda","rocm"],               // FlashMLA / FlashInfer-MLA / CUTLASS-MLA; AITER-MLA
+  },
+
+  // --- embedding (single native path: a gather) ---
+  embedding: {
+    native:   ["cuda","rocm","cpu","xpu","tpu"],
+  },
+
+  // --- gemm / quant ---
+  linear: {
+    native:   ["cuda","rocm","cpu","xpu","tpu"],   // torch.matmul -> cuBLAS/rocBLAS/oneDNN/XLA
+    custom:   ["cuda"],                            // w8a8 etc.
+    triton:   ["cuda","rocm","xpu"],
+    external: ["cuda","cpu","xpu"],                // CUTLASS/Marlin/Machete; oneDNN
+  },
+  scaled_mm: {
+    native:   ["cuda","rocm","cpu"],               // torch._scaled_mm
+    custom:   ["cuda"],
+    external: ["cuda","cpu","xpu"],                // CUTLASS w8a8; oneDNN
+  },
+  fp8_quant: {
+    native:   ["cuda","rocm","cpu","xpu","tpu"],
+    custom:   ["cuda","rocm"],
+    triton:   ["cuda","rocm","xpu"],
+  },
+  int8_quant: {
+    native:   ["cuda","rocm","cpu","xpu","tpu"],
+    custom:   ["cuda","rocm"],
+    triton:   ["cuda","rocm","xpu"],
+  },
+
+  // --- moe ---
+  moe: {
+    native:   ["cuda","rocm","cpu","xpu","tpu"],
+    custom:   ["cuda"],
+    triton:   ["cuda","rocm","xpu"],         // fused_moe Triton
+    external: ["cuda","rocm","tpu"],         // CUTLASS/DeepGEMM/Marlin/TRT-LLM; AITER
+  },
+
+  // --- kv cache write ---
+  reshape_cache: {
+    native:   ["cuda","rocm","cpu","xpu","tpu"],
+    custom:   ["cuda","rocm"],
+    triton:   ["cuda","rocm","xpu"],
+  },
+
+  // --- mamba / ssm ---
+  causal_conv1d: {
+    native:   ["cuda","rocm","cpu","tpu"],
+    custom:   ["cuda"],
+    triton:   ["cuda","rocm"],
+  },
+  mamba_ssm: {
+    native:   ["cuda","rocm","cpu","tpu"],
+    custom:   ["cuda"],
+    triton:   ["cuda","rocm"],
+  },
+
+  // --- lora ---
+  lora: {
+    native:   ["cuda","rocm","cpu","xpu","tpu"],   // torch_ops fallback
+    custom:   ["xpu"],                             // xpu_ops
+    triton:   ["cuda","rocm","xpu"],               // triton_ops shrink/expand
+  },
+
+  // --- sampling ---
+  sampler: {
+    native:   ["cuda","rocm","cpu","xpu","tpu"],
+    external: ["cuda"],                            // flashinfer sampling
+  },
+
+  // --- collectives ---
+  allreduce: {
+    native:   ["cuda","rocm","cpu"],   // NCCL / RCCL / Gloo
+    custom:   ["cuda","rocm"],         // custom_all_reduce / quickreduce
+    external: ["cuda"],                // flashinfer fused allreduce+RMSNorm
+  },
+  allgather: {
+    native:   ["cuda","rocm","cpu","xpu","tpu"],
+    custom:   ["cuda"],                // symm-mem / quick all-gather
+  },
+  reduce_scatter: {
+    native:   ["cuda","rocm","cpu","xpu"],
+  },
+  ep_a2a: {
+    native:   ["cuda","rocm"],         // NCCL all2all
+    external: ["cuda"],                // DeepEP / pplx-kernels
+  },
+};
+
+const PATHS = [];
+for (const op in SUPPORT) {
+  for (const source in SUPPORT[op]) {
+    for (const plat of SUPPORT[op][source]) {
+      const hardware = HW[plat];
+      for (const mode of MODES[plat]) {
+        const backend = backendOf(op, source, plat, mode);
+        PATHS.push({ op, mode, platform: plat, source, backend, hardware });
+      }
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ * State + faceted filtering
+ * -------------------------------------------------------------------------- */
+const selection = {};                 // layerId -> nodeId
+const hidden = {};                    // layerId -> bool (layer turned off)
+for (const L of LAYERS) hidden[L.id] = false;
+
+function activeLayers() { return LAYERS.filter(L => !hidden[L.id]); }
+
+// Which node ids actually appear in PATHS for a layer (skip dead chips).
+function usedNodes(layerId) {
+  const order = Object.keys(LAYERS.find(L => L.id === layerId).labels);
+  const present = new Set(PATHS.map(p => p[layerId]));
+  return order.filter(n => present.has(n));
+}
+
+// Paths consistent with every selection EXCEPT (optionally) one layer.
+function consistentPaths(exceptLayer) {
+  return PATHS.filter(p => {
+    for (const L of activeLayers()) {
+      if (L.id === exceptLayer) continue;
+      const sel = selection[L.id];
+      if (sel != null && p[L.id] !== sel) return false;
+    }
+    return true;
+  });
+}
+
+// Nodes available in a layer given all OTHER selections (faceted).
+function availableNodes(layerId) {
+  const s = new Set();
+  for (const p of consistentPaths(layerId)) s.add(p[layerId]);
+  return s;
+}
+
+// After a click, drop any other selection that no longer fits.
+function prune(keepLayer) {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const L of activeLayers()) {
+      if (L.id === keepLayer) continue;
+      const sel = selection[L.id];
+      if (sel == null) continue;
+      if (!availableNodes(L.id).has(sel)) { delete selection[L.id]; changed = true; }
+    }
+  }
+}
+
+function clickNode(layerId, nodeId) {
+  if (!availableNodes(layerId).has(nodeId)) return;     // dimmed → ignore
+  if (selection[layerId] === nodeId) delete selection[layerId];
+  else { selection[layerId] = nodeId; prune(layerId); }
+  render();
+}
+
+/* ----------------------------------------------------------------------------
+ * Rendering
+ * -------------------------------------------------------------------------- */
+function render() {
+  // layer toggles
+  const tg = document.getElementById("layerToggles");
+  tg.innerHTML = "";
+  for (const L of LAYERS) {
+    const lab = document.createElement("label");
+    lab.className = "layerToggle" + (hidden[L.id] ? " off" : "");
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = !hidden[L.id];
+    cb.onchange = () => { hidden[L.id] = !cb.checked; if (hidden[L.id]) delete selection[L.id]; render(); };
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode(L.title));
+    tg.appendChild(lab);
+  }
+
+  // layers
+  const root = document.getElementById("layers");
+  root.innerHTML = "";
+  const shown = activeLayers();
+  shown.forEach((L, i) => {
+    const avail = availableNodes(L.id);
+    const div = document.createElement("div");
+    div.className = "layer";
+    div.innerHTML =
+      `<div class="layer-head">
+         <span class="layer-idx">L${i}</span>
+         <span class="layer-title">${L.title}</span>
+         <span class="layer-desc">${L.desc}</span>
+       </div>`;
+    const nodesWrap = document.createElement("div");
+    nodesWrap.className = "nodes";
+    for (const n of usedNodes(L.id)) {
+      const [name, sub] = L.labels[n];
+      const el = document.createElement("div");
+      const isSel = selection[L.id] === n;
+      const isAv = avail.has(n);
+      el.className = "node " + (isSel ? "selected" : isAv ? "available" : "dim");
+      el.innerHTML = `${name}<small>${sub}</small>`;
+      el.onclick = () => clickNode(L.id, n);
+      nodesWrap.appendChild(el);
+    }
+    div.appendChild(nodesWrap);
+    root.appendChild(div);
+    if (i < shown.length - 1) {
+      const c = document.createElement("div");
+      c.className = "connector";
+      root.appendChild(c);
+    }
+  });
+
+  // breadcrumb + count
+  const chain = document.getElementById("chain");
+  chain.innerHTML = "";
+  const picked = shown.filter(L => selection[L.id] != null);
+  if (picked.length === 0) {
+    const h = document.createElement("span");
+    h.className = "hint";
+    h.textContent = "No selection — every lowering chain is shown. Start by picking an op in L0.";
+    chain.appendChild(h);
+  } else {
+    picked.forEach((L, i) => {
+      if (i > 0) { const a = document.createElement("span"); a.className = "arrow"; a.textContent = "▸"; chain.appendChild(a); }
+      const c = document.createElement("span");
+      c.className = "crumb";
+      c.textContent = L.labels[selection[L.id]][0];
+      chain.appendChild(c);
+    });
+  }
+  const matches = consistentPaths(null).length;
+  const cnt = document.createElement("span");
+  cnt.className = "count";
+  cnt.innerHTML = `matching chains: <b>${matches}</b>`;
+  chain.appendChild(cnt);
+
+  document.getElementById("copyBtn").textContent = `Copy ${visibleChains().length} chains`;
+  renderRefs();
+}
+
+// The currently-matching chains as readable arrow-lines (deduped over visible layers).
+function visibleChains() {
+  const ls = activeLayers();
+  const seen = new Set();
+  const out = [];
+  for (const p of consistentPaths(null)) {
+    const line = ls.map(L => L.labels[p[L.id]][0]).join("  →  ");
+    if (!seen.has(line)) { seen.add(line); out.push(line); }
+  }
+  return out;
+}
+
+/* ----------------------------------------------------------------------------
+ * file:line references (verified against the tree). Keys:
+ *   op:<id>  |  op:<id>+<source>  |  src:<source>  |  mode:<id>
+ *   |  plat:<id>  |  backend:<id>
+ * Each entry: [path, line|null, description]
+ * -------------------------------------------------------------------------- */
+const REFS = {
+  // --- dispatch mechanism (shown whenever any op is selected) ---
+  "dispatch": [
+    ["vllm/model_executor/custom_op.py", 174, "CustomOp.dispatch_forward — picks forward_* by platform"],
+    ["vllm/model_executor/custom_op.py", 272, "CustomOp.enabled — custom_ops enable/disable gate"],
+  ],
+
+  // --- op definitions ---
+  "op:rmsnorm": [["vllm/model_executor/layers/layernorm.py", 103, "class RMSNorm(CustomOp)"]],
+  "op:silu":    [["vllm/model_executor/layers/activation.py", 118, "class SiluAndMul(CustomOp)"]],
+  "op:rope":    [["vllm/model_executor/layers/rotary_embedding/base.py", 118, "class RotaryEmbedding"]],
+  "op:attn":    [["vllm/v1/attention/selector.py", 53, "get_attn_backend — backend selection entry"],
+                 ["vllm/v1/attention/backends/registry.py", 34, "AttentionBackendEnum — all backends"]],
+  "op:moe":     [["vllm/model_executor/layers/fused_moe/fused_moe.py", 313, "fused_moe_kernel (@triton.jit)"]],
+  "op:linear":  [["vllm/model_executor/layers/linear.py", 182, "UnquantizedLinearMethod"],
+                 ["vllm/model_executor/layers/linear.py", 220, "UnquantizedLinearMethod.apply (F.linear)"]],
+  "op:allreduce":[["vllm/distributed/device_communicators/custom_all_reduce.py", 50, "class CustomAllreduce"]],
+
+  // --- op + source : the concrete kernel/impl ---
+  "op:rmsnorm+native": [["vllm/model_executor/layers/layernorm.py", 233, "RMSNorm.forward_native (pure torch)"]],
+  "op:rmsnorm+custom": [["vllm/model_executor/layers/layernorm.py", 258, "RMSNorm.forward_cuda"],
+                        ["vllm/_custom_ops.py", 417, "torch.ops._C.rms_norm(...)"],
+                        ["csrc/torch_bindings.cpp", 163, "ops.impl(\"rms_norm\", kCUDA, &rms_norm)"],
+                        ["csrc/layernorm_kernels.cu", null, "CUDA kernel"]],
+  "op:rmsnorm+triton": [["vllm/model_executor/layers/layernorm.py", 318, "rms_norm_batch_invariant (Triton)"]],
+
+  "op:silu+native": [["vllm/model_executor/layers/activation.py", 138, "SiluAndMul.forward_native"]],
+  "op:silu+custom": [["vllm/model_executor/layers/activation.py", 133, "self.op = torch.ops._C.silu_and_mul"],
+                     ["vllm/model_executor/layers/activation.py", 143, "SiluAndMul.forward_cuda"],
+                     ["csrc/activation_kernels.cu", null, "CUDA kernel"]],
+
+  "op:rope+native": [["vllm/model_executor/layers/rotary_embedding/base.py", 182, "RotaryEmbedding.forward_native"]],
+  "op:rope+custom": [["vllm/model_executor/layers/rotary_embedding/base.py", 200, "RotaryEmbedding.forward_cuda"],
+                     ["vllm/_custom_ops.py", 408, "torch.ops._C.rotary_embedding(...)"],
+                     ["csrc/pos_encoding_kernels.cu", null, "CUDA kernel"]],
+
+  "op:attn+external": [["vllm/v1/attention/backends/flash_attn.py", 37, "flash_attn_varlen_func (flash-attn)"],
+                       ["vllm/v1/attention/backends/flashinfer.py", 1235, "FlashInferImpl"],
+                       ["vllm/v1/attention/backends/mla/cutlass_mla.py", null, "CUTLASS-MLA"]],
+  "op:attn+triton":   [["vllm/v1/attention/ops/triton_unified_attention.py", 505, "unified_attention"],
+                       ["vllm/v1/attention/ops/triton_unified_attention.py", 661, "kernel_unified_attention[grid](...) launch"],
+                       ["vllm/v1/attention/backends/triton_attn.py", null, "TRITON_ATTN backend"]],
+  "op:attn+custom":   [["csrc/attention/paged_attention_v1.cu", null, "paged attention v1 kernel"],
+                       ["csrc/attention/paged_attention_v2.cu", null, "paged attention v2 kernel"]],
+  "op:attn+native":   [["vllm/v1/attention/backends/flex_attention.py", null, "FlexAttention (torch.nn.attention)"],
+                       ["vllm/v1/attention/backends/cpu_attn.py", null, "CPU_ATTN"]],
+
+  "op:moe+triton":   [["vllm/model_executor/layers/fused_moe/fused_moe.py", 313, "fused_moe_kernel (@triton.jit)"]],
+  "op:moe+external": [["vllm/model_executor/layers/fused_moe/experts/cutlass_moe.py", null, "CUTLASS MoE"],
+                      ["vllm/model_executor/layers/fused_moe/experts/deep_gemm_moe.py", null, "DeepGEMM MoE"],
+                      ["vllm/model_executor/layers/fused_moe/fused_marlin_moe.py", null, "Marlin MoE"]],
+  "op:moe+custom":   [["csrc/moe/torch_bindings.cpp", null, "_moe_C ops"]],
+
+  "op:linear+native":   [["vllm/model_executor/layers/linear.py", 220, "UnquantizedLinearMethod.apply -> F.linear (cuBLAS)"]],
+  "op:linear+external": [["vllm/model_executor/layers/quantization/utils/marlin_utils.py", null, "Marlin GEMM wrapper"],
+                         ["csrc/quantization/machete", null, "Machete kernels"]],
+  "op:linear+custom":   [["csrc/quantization/w8a8", null, "w8a8 INT8 GEMM kernels"]],
+
+  "op:allreduce+native":   [["vllm/distributed/device_communicators/pynccl.py", null, "NCCL / RCCL collective"]],
+  "op:allreduce+custom":   [["vllm/distributed/device_communicators/custom_all_reduce.py", 266, "CustomAllreduce.custom_all_reduce"],
+                            ["csrc/custom_all_reduce.cu", null, "custom all-reduce CUDA kernel"]],
+  "op:allreduce+external": [["vllm/distributed/device_communicators/flashinfer_all_reduce.py", 324, "standalone flashinfer allreduce (works eager)"],
+                            ["vllm/compilation/passes/fusion/allreduce_rms_fusion.py", 742, "AllReduceFusionPass — fused allreduce+RMSNorm (compile-only)"]],
+
+  // --- new op definitions ---
+  "op:gemma_rmsnorm": [["vllm/model_executor/layers/layernorm.py", 356, "class GemmaRMSNorm(CustomOp)"]],
+  "op:rmsnorm_gated": [["vllm/model_executor/layers/layernorm.py", 406, "class RMSNormGated(CustomOp)"]],
+  "op:gelu":          [["vllm/model_executor/layers/activation.py", 280, "class GeluAndMul(CustomOp)"]],
+  "op:quick_gelu":    [["vllm/model_executor/layers/activation.py", 463, "class QuickGELU(CustomOp)"]],
+  "op:mla":           [["vllm/model_executor/layers/mla.py", 34, "MultiHeadLatentAttentionWrapper"],
+                       ["vllm/v1/attention/backends/mla/", null, "MLA backends (FlashMLA / CUTLASS-MLA / Triton-MLA)"]],
+  "op:embedding":     [["vllm/model_executor/layers/vocab_parallel_embedding.py", 192, "class VocabParallelEmbedding"]],
+  "op:scaled_mm":     [["vllm/_custom_ops.py", 861, "cutlass_scaled_mm(...)"]],
+  "op:fp8_quant":     [["vllm/_custom_ops.py", 1988, "scaled_fp8_quant(...)"]],
+  "op:int8_quant":    [["vllm/_custom_ops.py", 2142, "scaled_int8_quant(...)"]],
+  "op:reshape_cache": [["vllm/_custom_ops.py", 2670, "reshape_and_cache(...)"]],
+  "op:causal_conv1d": [["vllm/model_executor/layers/mamba/ops/causal_conv1d.py", 469, "causal_conv1d_fn"]],
+  "op:mamba_ssm":     [["vllm/model_executor/layers/mamba/ops/mamba_ssm.py", 539, "selective_scan_fn"],
+                       ["vllm/model_executor/layers/mamba/ops/ssd_combined.py", 157, "mamba_chunk_scan_combined_varlen"]],
+  "op:lora":          [["vllm/lora/ops/torch_ops/lora_ops.py", 50, "sgmv_shrink (torch fallback)"]],
+  "op:sampler":       [["vllm/v1/sample/ops/topk_topp_sampler.py", 22, "class TopKTopPSampler"]],
+  "op:allgather":     [["vllm/distributed/parallel_state.py", 523, "GroupCoordinator.all_gather"]],
+  "op:reduce_scatter":[["vllm/distributed/parallel_state.py", 554, "GroupCoordinator.reduce_scatter"]],
+  "op:ep_a2a":        [["vllm/model_executor/layers/fused_moe/modular_kernel.py", null, "prepare/finalize (dispatch/combine)"]],
+
+  // --- new op + source impls ---
+  "op:scaled_mm+external":   [["vllm/_custom_ops.py", 861, "cutlass_scaled_mm -> torch.ops._C"],
+                              ["csrc/quantization/cutlass_w8a8", null, "CUTLASS w8a8 GEMM"]],
+  "op:fp8_quant+custom":     [["vllm/_custom_ops.py", 1988, "scaled_fp8_quant -> torch.ops._C"],
+                              ["csrc/quantization/fp8", null, "FP8 quant kernels"]],
+  "op:int8_quant+custom":    [["vllm/_custom_ops.py", 2142, "scaled_int8_quant -> torch.ops._C"]],
+  "op:reshape_cache+custom": [["vllm/_custom_ops.py", 2670, "reshape_and_cache -> torch.ops._C"],
+                              ["csrc/cache_kernels.cu", null, "cache write CUDA kernel"]],
+  "op:causal_conv1d+triton": [["vllm/model_executor/layers/mamba/ops/causal_conv1d.py", 469, "causal_conv1d_fn (@triton.jit)"]],
+  "op:mamba_ssm+triton":     [["vllm/model_executor/layers/mamba/ops/ssd_combined.py", 157, "chunk-scan Triton"]],
+  "op:lora+triton":          [["vllm/lora/ops/triton_ops/lora_shrink_op.py", null, "LoRA shrink (Triton)"],
+                              ["vllm/lora/ops/triton_ops/lora_expand_op.py", null, "LoRA expand (Triton)"]],
+  "op:lora+native":          [["vllm/lora/ops/torch_ops/lora_ops.py", 50, "sgmv_shrink / bgmv_shrink (torch)"]],
+  "op:sampler+external":     [["vllm/v1/sample/ops/topk_topp_sampler.py", 22, "flashinfer sampling path"]],
+  "op:ep_a2a+external":      [["vllm/model_executor/layers/fused_moe/", null, "DeepEP / pplx-kernels all2all"]],
+  "op:allgather+native":     [["vllm/distributed/parallel_state.py", 160, "all_gather (NCCL/RCCL)"]],
+  "op:reduce_scatter+native":[["vllm/distributed/parallel_state.py", 142, "reduce_scatter (NCCL/RCCL)"]],
+
+  // --- generic source mechanism ---
+  "src:custom":   [["vllm/utils/torch_utils.py", 899, "direct_register_custom_op — freestanding op registration"],
+                   ["csrc/torch_bindings.cpp", 18, "TORCH_LIBRARY_EXPAND — C++ op bindings"]],
+  "src:triton":   [["vllm/triton_utils/importing.py", null, "conditional Triton import (own JIT compiler)"]],
+
+  // --- execution mode ---
+  "mode:eager":     [["vllm/config/compilation.py", 41, "CompilationMode.NONE (enforce_eager)"]],
+  "mode:compile":   [["vllm/config/compilation.py", 48, "CompilationMode.VLLM_COMPILE"],
+                     ["vllm/compilation/backends.py", 798, "class VllmBackend"],
+                     ["vllm/compilation/backends.py", 546, "split_graph — piecewise split at attention ops"]],
+  "mode:cudagraph": [["vllm/compilation/cuda_graph.py", null, "CUDAGraphWrapper — record/replay"],
+                     ["vllm/config/compilation.py", 59, "CUDAGraphMode"]],
+
+  // --- platform ---
+  "plat:cuda": [["vllm/platforms/cuda.py", null, "get_attn_backend_cls / backend priorities"]],
+  "plat:rocm": [["vllm/platforms/rocm.py", null, "ROCm backend priorities"],
+                ["vllm/_aiter_ops.py", null, "AITER op wrappers"]],
+  "plat:cpu":  [["vllm/platforms/cpu.py", null, "CPU platform"],
+                ["csrc/cpu/dnnl_kernels.cpp", null, "oneDNN GEMM kernels"]],
+  "plat:xpu":  [["vllm/platforms/xpu.py", null, "Intel XPU platform"]],
+  "plat:tpu":  [["vllm/platforms/tpu.py", null, "delegates to external tpu_inference (XLA/Pallas)"]],
+
+  // --- backend (only the ones with a concrete in-repo anchor) ---
+  "backend:inductor_triton": [["vllm/compilation/backends.py", 798, "VllmBackend → Inductor → Triton"],
+                              ["vllm/compilation/compiler_interface.py", null, "InductorStandaloneAdaptor"]],
+  "backend:inductor_cpp":    [["vllm/compilation/backends.py", 798, "VllmBackend → Inductor → C++/OpenMP"]],
+  "backend:nvcc":   [["CMakeLists.txt", null, "csrc/*.cu compiled by NVCC at build time"]],
+  "backend:onednn": [["csrc/cpu/dnnl_kernels.cpp", null, "oneDNN integration"]],
+  "backend:ccl_nccl": [["vllm/distributed/device_communicators/pynccl.py", null, "NCCL communicator"]],
+  "backend:ccl_rccl": [["vllm/distributed/device_communicators/pynccl.py", null, "RCCL via the NCCL API"]],
+  "backend:ccl_gloo": [["vllm/distributed/device_communicators/", null, "Gloo (torch.distributed CPU)"]],
+  "backend:ccl_xccl": [["vllm/distributed/device_communicators/", null, "XCCL / oneCCL (Intel)"]],
+  "backend:ccl_xla":  [["vllm/platforms/tpu.py", null, "TPU collectives via XLA (tpu_inference)"]],
+};
+
+function refsFor() {
+  const groups = [];
+  const seen = new Set();
+  const push = (title, keys) => {
+    const rows = [];
+    for (const k of keys) {
+      for (const r of (REFS[k] || [])) {
+        const id = r[0] + ":" + r[1];
+        if (seen.has(id)) continue;
+        seen.add(id); rows.push(r);
+      }
+    }
+    if (rows.length) groups.push([title, rows]);
+  };
+
+  const op = selection.op, src = selection.source, mode = selection.mode,
+        plat = selection.platform, bk = selection.backend;
+
+  if (op) push("Op definition", ["op:" + op, "dispatch"]);
+  if (op && src) push("Selected implementation", ["op:" + op + "+" + src]);
+  if (src) push("Source mechanism", ["src:" + src]);
+  if (mode) push("Execution mode", ["mode:" + mode]);
+  if (plat) push("Platform", ["plat:" + plat]);
+  if (bk) push("Backend", ["backend:" + bk]);
+  return groups;
+}
+
+function renderRefs() {
+  const sub = document.getElementById("rpsub");
+  const body = document.getElementById("rpbody");
+  const groups = refsFor();
+  const picked = activeLayers().filter(L => selection[L.id] != null)
+                    .map(L => LAYERS.find(x => x.id === L.id).labels[selection[L.id]][0]);
+  sub.textContent = picked.length ? picked.join(" ▸ ") : "make a selection to resolve file:line";
+
+  if (!groups.length) {
+    body.innerHTML = `<div class="refempty">Pick an op (and optionally a source / mode / platform) to see the concrete files and line numbers in the vLLM tree.</div>`;
+    return;
+  }
+  body.innerHTML = "";
+  for (const [title, rows] of groups) {
+    const g = document.createElement("div");
+    g.className = "refgroup";
+    g.innerHTML = `<h4>${title}</h4>`;
+    for (const [path, line, desc] of rows) {
+      const loc = line != null ? `${path}:${line}` : path;
+      const row = document.createElement("div");
+      row.className = "refrow";
+      const a = document.createElement("span");
+      a.className = "loc"; a.textContent = loc; a.title = "click to copy";
+      a.onclick = () => {
+        navigator.clipboard && navigator.clipboard.writeText(loc);
+        a.classList.add("copied"); a.textContent = "copied ✓";
+        setTimeout(() => { a.classList.remove("copied"); a.textContent = loc; }, 900);
+      };
+      const d = document.createElement("span");
+      d.className = "desc"; d.textContent = "— " + desc;
+      row.appendChild(a); row.appendChild(d);
+      g.appendChild(row);
+    }
+    body.appendChild(g);
+  }
+}
+
+// collapse toggle
+document.getElementById("rphead").onclick = () => {
+  const p = document.getElementById("refpanel");
+  p.classList.toggle("collapsed");
+  document.getElementById("rpchev").textContent =
+    p.classList.contains("collapsed") ? "▲ click to expand" : "▼ click to collapse";
+};
+
+document.getElementById("copyBtn").onclick = () => {
+  const lines = visibleChains();
+  const text = lines.join("\n");
+  const btn = document.getElementById("copyBtn");
+  const done = () => { btn.textContent = `Copied ${lines.length} ✓`;
+    setTimeout(render, 1000); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, done);
+  } else {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta); done();
+  }
+};
+
+document.getElementById("resetBtn").onclick = () => {
+  for (const k in selection) delete selection[k];
+  render();
+};
+
+render();
+</script>
+</body>
+</html>
