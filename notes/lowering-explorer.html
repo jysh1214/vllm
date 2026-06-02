@@ -70,6 +70,8 @@
   /* layers */
   .layer { margin-bottom: 14px; }
   .layer.hidden { display: none; }
+  .layer.disabled { opacity: .5; }
+  .layer.disabled .layer-title::after { content: " · disabled"; color: var(--muted); font-weight: 400; }
   .layer-head {
     display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px;
   }
@@ -145,6 +147,18 @@
   .refrow .loc.copied { color: #6ee7a8; }
   .refrow .desc { color: var(--muted); font-family: inherit; }
   .refempty { color: var(--muted); font-size: 12px; padding: 8px 0; }
+  .codeblock {
+    background: #0c0e13; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; margin: 4px 0 2px; color: #cfe3ff;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px;
+    white-space: pre; overflow-x: auto; line-height: 1.5;
+  }
+  .codecopy {
+    float: right; margin-top: -2px; background: var(--accent-soft); color: var(--ink);
+    border: 1px solid var(--accent); border-radius: 5px; font-size: 10px; padding: 1px 7px;
+    cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .codecopy:hover { background: #2c3c6b; }
 </style>
 </head>
 <body>
@@ -175,13 +189,13 @@
       <span class="pill av"></span> available (part of a compatible chain) &nbsp;&nbsp;
       <span class="pill dm"></span> excluded by current choices
     </div>
-    <b>How to read it.</b> The axes are <i>mostly</i> orthogonal. For <b>Custom / Triton / External</b> kernels, <code>Execution mode</code> changes only <i>how</i> the kernel is launched (CUDA-graph replay, fusion <i>around</i> it) — they're opaque to <code>torch.compile</code>, so Source/Backend/Hardware stay put. The <b>exception is Native ops</b>: <code>torch.compile</code> replaces ATen eager dispatch with <b>Inductor codegen</b> (Triton on GPU, C++/OpenMP on CPU), so the mechanism row <i>does</i> change — which is why <code>Eager</code> is the only mode that pairs with an <code>ATen-… dispatch</code> backend. <code>Platform</code> gates which Sources &amp; mechanisms exist; <code>Backend</code> and <code>Hardware</code> are <i>derived</i> from Source + Platform (+ mode, for native).
+    <b>How to read it.</b> <code>Platform / Hardware</code> sits at the top because it's an <i>auto-detected environment fact</i> (<code>current_platform</code>, resolved from the installed wheel + visible devices) — not a config choice — and it gates everything below. (The old separate "Hardware target" layer is merged in: it was a 1:1 function of platform.) <code>Compilation mode</code> (the <code>CompilationMode</code> enum) and <code>torch.compile backend</code> (the <code>backend</code> field) <i>are</i> config you set; the backend layer is <b>disabled when mode = NONE</b>. For <b>Custom / Triton / External</b> kernels both are inert (opaque to <code>torch.compile</code>), so the <code>Launch mechanism</code> is the same in every mode. The <b>exception is Native ops</b>: mode≠NONE with backend=<code>inductor</code> → <b>Inductor codegen</b> (Triton on GPU, C++/OpenMP on CPU); backend=<code>eager</code> → <b>ATen</b> (graph captured, no codegen); <code>openxla</code> → XLA on TPU. <code>Launch mechanism</code> is <i>derived</i> from source + platform (+ compile mode/backend, for native).
   </div>
 </div>
 
 <div class="refpanel" id="refpanel">
   <div class="rphead" id="rphead">
-    <span class="rptitle">Source references</span>
+    <span class="rptitle">Generated config &amp; references</span>
     <span class="rpsub" id="rpsub"></span>
     <span class="rpchev" id="rpchev">▼ click to collapse</span>
   </div>
@@ -194,6 +208,14 @@
  * Each layer: id, title, desc, and the ordered label map for its nodes.
  * -------------------------------------------------------------------------- */
 const LAYERS = [
+  { id: "platform", title: "Platform / Hardware", desc: "auto-detected environment (current_platform) — gates everything below",
+    labels: {
+      cuda: ["CUDA", "NVIDIA GPU · SASS"],
+      rocm: ["ROCm", "AMD GPU · rocgfx"],
+      cpu:  ["CPU", "x86 / ARM · machine code"],
+      xpu:  ["XPU", "Intel GPU · Level Zero"],
+      tpu:  ["TPU", "XLA executable"],
+    }},
   { id: "op", title: "Layer / Op", desc: "the model component you call",
     labels: {
       // norm / activation
@@ -231,19 +253,20 @@ const LAYERS = [
       reduce_scatter:["ReduceScatter", "SP comms"],
       ep_a2a:        ["EP dispatch/combine", "expert-parallel all2all"],
     }},
-  { id: "mode", title: "Execution mode", desc: "graph strategy — orthogonal to which kernel runs",
+  { id: "compmode", title: "Compilation mode", desc: "CompilationMode — how torch.compile is driven",
     labels: {
-      eager:     ["Eager", "Python drives each op"],
-      compile:   ["torch.compile", "Dynamo → FX → Inductor"],
-      cudagraph: ["+ CUDA graph", "record / replay launch"],
+      none:       ["NONE", "eager · no torch.compile"],
+      stock:      ["STOCK_TORCH_COMPILE", "standard torch.compile, whole graph"],
+      trace_once: ["DYNAMO_TRACE_ONCE", "single Dynamo trace, no recompile"],
+      vllm:       ["VLLM_COMPILE", "piecewise split + custom fusion passes"],
     }},
-  { id: "platform", title: "Platform", desc: "gates which sources & backends exist",
+  { id: "tcbackend", title: "torch.compile backend", desc: "codegen engine — DISABLED when mode = NONE",
+    sentinels: ["na"],
     labels: {
-      cuda: ["CUDA", "NVIDIA"],
-      rocm: ["ROCm", "AMD"],
-      cpu:  ["CPU", "x86 / ARM"],
-      xpu:  ["XPU", "Intel GPU"],
-      tpu:  ["TPU", "via tpu_inference"],
+      na:       ["— n/a", "eager: no torch.compile backend"],
+      inductor: ["inductor", "default · codegen → Triton / C++"],
+      eager:    ["eager", "capture graph, run ATen (no codegen)"],
+      openxla:  ["openxla", "TPU → XLA"],
     }},
   { id: "source", title: "Implementation source", desc: "how the op resolves to a kernel (the real diversity)",
     labels: {
@@ -252,7 +275,7 @@ const LAYERS = [
       triton:   ["Hand-written Triton", "@triton.jit"],
       external: ["External library", "vendor kernels"],
     }},
-  { id: "backend", title: "Compile / launch mechanism", desc: "HOW the kernel is compiled & launched (DERIVED from source + platform)",
+  { id: "mechanism", title: "Launch mechanism (per-op)", desc: "the actual kernel compile+launch — DERIVED from source + platform + compile mode",
     labels: {
       // ATen eager dispatch — torch's own kernels; library backing GEMM noted in the sublabel
       aten_cuda:  ["ATen-CUDA dispatch", "torch eager kernels · GEMM→cuBLAS/cuDNN"],
@@ -284,14 +307,6 @@ const LAYERS = [
       ccl_xccl:   ["XCCL collective", "Intel · oneCCL"],
       ccl_xla:    ["XLA collective", "TPU · XLA all-reduce / all-gather"],
     }},
-  { id: "hardware", title: "Hardware target", desc: "DERIVED from platform",
-    labels: {
-      nvidia: ["NVIDIA GPU", "SASS"],
-      amd:    ["AMD GPU", "rocgfx"],
-      cpu:    ["CPU", "machine code"],
-      intel:  ["Intel GPU", "Level Zero"],
-      tpu:    ["TPU", "XLA executable"],
-    }},
 ];
 
 /* ----------------------------------------------------------------------------
@@ -299,18 +314,28 @@ const LAYERS = [
  * Per op we declare which platforms each source supports; backend + hardware
  * are derived. Modes are gated by platform.
  * -------------------------------------------------------------------------- */
-const HW = { cuda:"nvidia", rocm:"amd", cpu:"cpu", xpu:"intel", tpu:"tpu" };
-const MODES = {
-  cuda: ["eager","compile","cudagraph"],
-  rocm: ["eager","compile","cudagraph"],
-  cpu:  ["eager","compile"],
-  xpu:  ["eager","compile"],
-  tpu:  ["compile"],   // XLA always compiles
+// CompilationMode availability per platform (TPU always compiles via torch_xla).
+const COMPMODES = {
+  cuda: ["none","stock","trace_once","vllm"],
+  rocm: ["none","stock","trace_once","vllm"],
+  cpu:  ["none","stock","trace_once","vllm"],
+  xpu:  ["none","stock","trace_once","vllm"],
+  tpu:  ["stock"],
 };
+// torch.compile `backend` choices, gated by compile mode + platform.
+// NONE means eager → no backend (the "na" sentinel disables the layer).
+function tcBackendsOf(compmode, plat) {
+  if (compmode === "none") return ["na"];
+  if (plat === "tpu")      return ["openxla"];
+  return ["inductor", "eager"];
+}
 
 const COMM = new Set(["allreduce", "allgather", "reduce_scatter", "ep_a2a"]);
-const isCompiled = (mode) => mode === "compile" || mode === "cudagraph";
-function backendOf(op, source, plat, mode) {
+const ATEN = { cuda:"aten_cuda", rocm:"aten_rocm", cpu:"aten_cpu", xpu:"aten_xpu" };
+
+// The per-op launch MECHANISM. Only the `native` source depends on compile mode/backend;
+// custom / triton / external are opaque to torch.compile (same kernel in every mode).
+function mechOf(op, source, plat, compmode, tcb) {
   if (COMM.has(op)) {
     if (source === "native")                     // platform-specific collective library
       return { cuda:"ccl_nccl", rocm:"ccl_rccl", cpu:"ccl_gloo", xpu:"ccl_xccl", tpu:"ccl_xla" }[plat];
@@ -319,10 +344,10 @@ function backendOf(op, source, plat, mode) {
   }
   switch (source) {
     case "native":
-      // torch.compile REPLACES eager ATen dispatch with Inductor codegen for native ops
-      if (plat === "tpu") return "xla";                         // XLA always compiles
-      if (isCompiled(mode)) return plat === "cpu" ? "inductor_cpp" : "inductor_triton";
-      return { cuda:"aten_cuda", rocm:"aten_rocm", cpu:"aten_cpu", xpu:"aten_xpu" }[plat];
+      if (plat === "tpu") return "xla";                          // TPU native always lowers via XLA
+      if (compmode === "none") return ATEN[plat];                // eager → ATen dispatch
+      if (tcb === "inductor") return plat === "cpu" ? "inductor_cpp" : "inductor_triton";
+      return ATEN[plat];                                         // backend=eager → graph captured, run ATen
     case "custom":
       return { cuda:"nvcc", rocm:"hip", cpu:"cpp", xpu:"sycl" }[plat];
     case "triton":
@@ -337,19 +362,22 @@ function backendOf(op, source, plat, mode) {
 }
 
 // op -> source -> [platforms supported]
-const ELEMENTWISE = {            // shared shape for norm / activation ops
+// norm / activation ops that ship a csrc custom kernel but have NO hand-written Triton path.
+const NORM_ACT = {
   native: ["cuda","rocm","cpu","xpu","tpu"],
   custom: ["cuda","rocm","cpu","xpu"],
-  triton: ["cuda","rocm","xpu"],
 };
 const SUPPORT = {
-  // --- norm / activation (all share the elementwise shape) ---
-  rmsnorm:       ELEMENTWISE,
-  gemma_rmsnorm: ELEMENTWISE,
-  rmsnorm_gated: ELEMENTWISE,
-  silu:          ELEMENTWISE,
-  gelu:          ELEMENTWISE,
-  quick_gelu:    ELEMENTWISE,
+  // --- norm / activation (audited per-op against forward_* methods) ---
+  rmsnorm:       { native: ["cuda","rocm","cpu","xpu","tpu"],   // forward_cuda: torch.ops._C.rms_norm
+                   custom: ["cuda","rocm","cpu","xpu"],
+                   triton: ["cuda","rocm","xpu"] },             // + rms_norm_batch_invariant (Triton)
+  gemma_rmsnorm: NORM_ACT,                                       // forward_cuda → forward_native → ir.ops.rms_norm
+  rmsnorm_gated: { native: ["cuda","rocm","cpu","xpu","tpu"],   // forward_cuda → rmsnorm_fn (Mamba Triton)
+                   triton: ["cuda","rocm","xpu"] },             // NO csrc custom kernel
+  silu:          NORM_ACT,                                       // torch.ops._C.silu_and_mul
+  gelu:          NORM_ACT,                                       // torch.ops._C.gelu_and_mul
+  quick_gelu:    NORM_ACT,                                       // torch.ops._C.gelu_quick
 
   // --- positional / attention ---
   rope: {
@@ -461,10 +489,11 @@ const PATHS = [];
 for (const op in SUPPORT) {
   for (const source in SUPPORT[op]) {
     for (const plat of SUPPORT[op][source]) {
-      const hardware = HW[plat];
-      for (const mode of MODES[plat]) {
-        const backend = backendOf(op, source, plat, mode);
-        PATHS.push({ op, mode, platform: plat, source, backend, hardware });
+      for (const compmode of COMPMODES[plat]) {
+        for (const tcb of tcBackendsOf(compmode, plat)) {
+          const mechanism = mechOf(op, source, plat, compmode, tcb);
+          PATHS.push({ platform: plat, op, compmode, tcbackend: tcb, source, mechanism });
+        }
       }
     }
   }
@@ -550,8 +579,10 @@ function render() {
   const shown = activeLayers();
   shown.forEach((L, i) => {
     const avail = availableNodes(L.id);
+    const sentinels = L.sentinels || [];
+    const isDisabled = avail.size > 0 && [...avail].every(n => sentinels.includes(n));
     const div = document.createElement("div");
-    div.className = "layer";
+    div.className = "layer" + (isDisabled ? " disabled" : "");
     div.innerHTML =
       `<div class="layer-head">
          <span class="layer-idx">L${i}</span>
@@ -586,7 +617,7 @@ function render() {
   if (picked.length === 0) {
     const h = document.createElement("span");
     h.className = "hint";
-    h.textContent = "No selection — every lowering chain is shown. Start by picking an op in L0.";
+    h.textContent = "No selection — every lowering chain is shown. Start anywhere — e.g. a platform (L0) or an op (L1).";
     chain.appendChild(h);
   } else {
     picked.forEach((L, i) => {
@@ -733,13 +764,20 @@ const REFS = {
                    ["csrc/torch_bindings.cpp", 18, "TORCH_LIBRARY_EXPAND — C++ op bindings"]],
   "src:triton":   [["vllm/triton_utils/importing.py", null, "conditional Triton import (own JIT compiler)"]],
 
-  // --- execution mode ---
-  "mode:eager":     [["vllm/config/compilation.py", 41, "CompilationMode.NONE (enforce_eager)"]],
-  "mode:compile":   [["vllm/config/compilation.py", 48, "CompilationMode.VLLM_COMPILE"],
-                     ["vllm/compilation/backends.py", 798, "class VllmBackend"],
-                     ["vllm/compilation/backends.py", 546, "split_graph — piecewise split at attention ops"]],
-  "mode:cudagraph": [["vllm/compilation/cuda_graph.py", null, "CUDAGraphWrapper — record/replay"],
-                     ["vllm/config/compilation.py", 59, "CUDAGraphMode"]],
+  // --- compilation mode (CompilationMode enum) ---
+  "compmode:none":       [["vllm/config/compilation.py", 41, "CompilationMode.NONE — fully eager"]],
+  "compmode:stock":      [["vllm/config/compilation.py", 44, "CompilationMode.STOCK_TORCH_COMPILE"]],
+  "compmode:trace_once": [["vllm/config/compilation.py", 46, "CompilationMode.DYNAMO_TRACE_ONCE"]],
+  "compmode:vllm":       [["vllm/config/compilation.py", 48, "CompilationMode.VLLM_COMPILE"],
+                          ["vllm/compilation/backends.py", 798, "class VllmBackend"],
+                          ["vllm/compilation/backends.py", 546, "split_graph — piecewise split"]],
+
+  // --- torch.compile backend (the `backend` config field) ---
+  "tcbackend:na":       [["vllm/config/compilation.py", 41, "no backend — mode is NONE (eager)"]],
+  "tcbackend:inductor": [["vllm/config/compilation.py", 450, "backend field — default 'inductor'"],
+                         ["vllm/compilation/compiler_interface.py", null, "Inductor adaptor"]],
+  "tcbackend:eager":    [["vllm/config/compilation.py", 455, "backend='eager' — capture, run ATen"]],
+  "tcbackend:openxla":  [["vllm/config/compilation.py", 455, "backend='openxla' — TPU/XLA"]],
 
   // --- platform ---
   "plat:cuda": [["vllm/platforms/cuda.py", null, "get_attn_backend_cls / backend priorities"]],
@@ -750,17 +788,17 @@ const REFS = {
   "plat:xpu":  [["vllm/platforms/xpu.py", null, "Intel XPU platform"]],
   "plat:tpu":  [["vllm/platforms/tpu.py", null, "delegates to external tpu_inference (XLA/Pallas)"]],
 
-  // --- backend (only the ones with a concrete in-repo anchor) ---
-  "backend:inductor_triton": [["vllm/compilation/backends.py", 798, "VllmBackend → Inductor → Triton"],
-                              ["vllm/compilation/compiler_interface.py", null, "InductorStandaloneAdaptor"]],
-  "backend:inductor_cpp":    [["vllm/compilation/backends.py", 798, "VllmBackend → Inductor → C++/OpenMP"]],
-  "backend:nvcc":   [["CMakeLists.txt", null, "csrc/*.cu compiled by NVCC at build time"]],
-  "backend:onednn": [["csrc/cpu/dnnl_kernels.cpp", null, "oneDNN integration"]],
-  "backend:ccl_nccl": [["vllm/distributed/device_communicators/pynccl.py", null, "NCCL communicator"]],
-  "backend:ccl_rccl": [["vllm/distributed/device_communicators/pynccl.py", null, "RCCL via the NCCL API"]],
-  "backend:ccl_gloo": [["vllm/distributed/device_communicators/", null, "Gloo (torch.distributed CPU)"]],
-  "backend:ccl_xccl": [["vllm/distributed/device_communicators/", null, "XCCL / oneCCL (Intel)"]],
-  "backend:ccl_xla":  [["vllm/platforms/tpu.py", null, "TPU collectives via XLA (tpu_inference)"]],
+  // --- launch mechanism (only the ones with a concrete in-repo anchor) ---
+  "mechanism:inductor_triton": [["vllm/compilation/backends.py", 798, "VllmBackend → Inductor → Triton"],
+                                ["vllm/compilation/compiler_interface.py", null, "InductorStandaloneAdaptor"]],
+  "mechanism:inductor_cpp":    [["vllm/compilation/backends.py", 798, "VllmBackend → Inductor → C++/OpenMP"]],
+  "mechanism:nvcc":   [["CMakeLists.txt", null, "csrc/*.cu compiled by NVCC at build time"]],
+  "mechanism:onednn": [["csrc/cpu/dnnl_kernels.cpp", null, "oneDNN integration"]],
+  "mechanism:ccl_nccl": [["vllm/distributed/device_communicators/pynccl.py", null, "NCCL communicator"]],
+  "mechanism:ccl_rccl": [["vllm/distributed/device_communicators/pynccl.py", null, "RCCL via the NCCL API"]],
+  "mechanism:ccl_gloo": [["vllm/distributed/device_communicators/", null, "Gloo (torch.distributed CPU)"]],
+  "mechanism:ccl_xccl": [["vllm/distributed/device_communicators/", null, "XCCL / oneCCL (Intel)"]],
+  "mechanism:ccl_xla":  [["vllm/platforms/tpu.py", null, "TPU collectives via XLA (tpu_inference)"]],
 };
 
 function refsFor() {
@@ -778,16 +816,92 @@ function refsFor() {
     if (rows.length) groups.push([title, rows]);
   };
 
-  const op = selection.op, src = selection.source, mode = selection.mode,
-        plat = selection.platform, bk = selection.backend;
+  const op = selection.op, src = selection.source,
+        compmode = selection.compmode, tcb = selection.tcbackend,
+        plat = selection.platform, mech = selection.mechanism;
 
   if (op) push("Op definition", ["op:" + op, "dispatch"]);
   if (op && src) push("Selected implementation", ["op:" + op + "+" + src]);
   if (src) push("Source mechanism", ["src:" + src]);
-  if (mode) push("Execution mode", ["mode:" + mode]);
+  if (compmode) push("Compilation mode", ["compmode:" + compmode]);
+  if (tcb) push("torch.compile backend", ["tcbackend:" + tcb]);
   if (plat) push("Platform", ["plat:" + plat]);
-  if (bk) push("Backend", ["backend:" + bk]);
+  if (mech) push("Launch mechanism", ["mechanism:" + mech]);
   return groups;
+}
+
+/* ----------------------------------------------------------------------------
+ * Generated config — turn the current selection into runnable vLLM code.
+ * Per-family knobs (from the codebase): custom_ops for CustomOps, the attention
+ * selector for attn/mla, VLLM_USE_* for MoE; mode/backend for the compile axes.
+ * -------------------------------------------------------------------------- */
+const REG_NAME = { rmsnorm:"rms_norm", gemma_rmsnorm:"gemma_rms_norm", rmsnorm_gated:"rms_norm_gated",
+                   silu:"silu_and_mul", gelu:"gelu_and_mul", quick_gelu:"quick_gelu", rope:"rotary_embedding" };
+const ATTN_OPS  = new Set(["attn", "mla"]);
+const MODE_ENUM = { none:"NONE", stock:"STOCK_TORCH_COMPILE", trace_once:"DYNAMO_TRACE_ONCE", vllm:"VLLM_COMPILE" };
+const PLAT_NOTE = { cuda:"install the CUDA wheel; expose an NVIDIA GPU", rocm:"install the ROCm wheel; expose an AMD GPU",
+                    cpu:"build with VLLM_TARGET_DEVICE=cpu", xpu:"install the XPU build; expose an Intel GPU",
+                    tpu:"install tpu_inference; run on a TPU" };
+const ATTN_BACKEND = { external:"FLASH_ATTN", triton:"TRITON_ATTN", native:"FLEX_ATTENTION" };
+
+function codeFor() {
+  const s = selection;
+  const picked = activeLayers().filter(L => s[L.id] != null);
+  if (!picked.length) return null;
+  const label = picked.map(L => L.labels[s[L.id]][0]).join("  ·  ");
+
+  const env = [], cfg = [], note = [];
+  if (s.compmode) cfg.push(`mode=CompilationMode.${MODE_ENUM[s.compmode]}`);
+  if (s.tcbackend && s.tcbackend !== "na") cfg.push(`backend="${s.tcbackend}"`);
+
+  if (s.op && s.source) {
+    if (REG_NAME[s.op]) {
+      const nm = REG_NAME[s.op];
+      if (s.source === "custom") { cfg.push(`custom_ops=["none", "+${nm}"]`);
+        note.push(`# L4 source=custom: "+${nm}" enables the csrc kernel (torch.ops._C.${nm})`); }
+      else if (s.source === "native") { cfg.push(`custom_ops=["all", "-${nm}"]`);
+        note.push(`# L4 source=native: "-${nm}" forces forward_native (ATen / Inductor)`); }
+      else if (s.source === "triton")
+        note.push(`# L4 source=triton: op-internal hand-written @triton.jit path (e.g. batch-invariant / rmsnorm_fn)`);
+    } else if (ATTN_OPS.has(s.op)) {
+      if (ATTN_BACKEND[s.source]) env.push([`VLLM_ATTENTION_BACKEND`, ATTN_BACKEND[s.source], `L4 source=${s.source}`]);
+      else note.push(`# L4 source=custom: paged-attention kernels, chosen by platform backend priority (no direct env)`);
+    } else if (s.op === "moe") {
+      if (s.source === "external") env.push([`VLLM_USE_DEEP_GEMM`, "1", "or VLLM_USE_FLASHINFER_MOE_FP8=1, etc."]);
+      else note.push(`# L4 source=${s.source}: selected by the FusedMoE method / quant config`);
+    } else if (COMM.has(s.op)) {
+      note.push(`# L4 source=${s.source}: collective impl chosen by the communicator (custom all-reduce / NCCL / flashinfer)`);
+    } else {
+      note.push(`# L4 source=${s.source}: selected internally by quant config / heuristics`);
+    }
+  }
+
+  const out = [];
+  out.push(`# chain:  ${label}`);
+  if (s.platform) out.push(`# L0 platform: ${s.platform.toUpperCase()} — auto-detected (${PLAT_NOTE[s.platform]})`);
+  if (s.mechanism) out.push(`# L5 mechanism: ${LAYERS.find(L => L.id === "mechanism").labels[s.mechanism][0]}`);
+  out.push("");
+  if (env.length) {
+    out.push("import os");
+    for (const [k, v, c] of env) out.push(`os.environ["${k}"] = "${v}"` + (c ? `   # ${c}` : ""));
+    out.push("");
+  }
+  out.push("from vllm import LLM");
+  if (s.compmode) {
+    out.push("from vllm.config import CompilationConfig");
+    out.push("from vllm.config.compilation import CompilationMode");
+  }
+  out.push("");
+  out.push("llm = LLM(");
+  out.push('    model="<your-model>",');
+  if (cfg.length) {
+    out.push("    compilation_config=CompilationConfig(");
+    for (const c of cfg) out.push(`        ${c},`);
+    out.push("    ),");
+  }
+  out.push(")");
+  for (const n of note) out.push(n);
+  return { label, code: out.join("\n") };
 }
 
 function renderRefs() {
@@ -798,11 +912,26 @@ function renderRefs() {
                     .map(L => LAYERS.find(x => x.id === L.id).labels[selection[L.id]][0]);
   sub.textContent = picked.length ? picked.join(" ▸ ") : "make a selection to resolve file:line";
 
-  if (!groups.length) {
-    body.innerHTML = `<div class="refempty">Pick an op (and optionally a source / mode / platform) to see the concrete files and line numbers in the vLLM tree.</div>`;
+  body.innerHTML = "";
+  const cg = codeFor();
+  if (cg) {
+    const sec = document.createElement("div");
+    sec.className = "refgroup";
+    const h = document.createElement("h4");
+    h.textContent = "Generated config";
+    const cp = document.createElement("button");
+    cp.className = "codecopy"; cp.textContent = "copy";
+    cp.onclick = () => { if (navigator.clipboard) navigator.clipboard.writeText(cg.code);
+      cp.textContent = "copied ✓"; setTimeout(() => cp.textContent = "copy", 900); };
+    h.appendChild(cp); sec.appendChild(h);
+    const pre = document.createElement("pre");
+    pre.className = "codeblock"; pre.textContent = cg.code;
+    sec.appendChild(pre); body.appendChild(sec);
+  }
+  if (!groups.length && !cg) {
+    body.innerHTML = `<div class="refempty">Pick a platform / op (and optionally a source / mode) to generate config + resolve file:line references.</div>`;
     return;
   }
-  body.innerHTML = "";
   for (const [title, rows] of groups) {
     const g = document.createElement("div");
     g.className = "refgroup";

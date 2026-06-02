@@ -1,615 +1,1316 @@
 vLLM lowering-path explorer — ALL combinations (complete chains)
-Generated from notes/lowering-explorer.html  (SUPPORT x MODES, backend derived)
-Columns:  OP | MODE | PLATFORM | SOURCE | BACKEND(mechanism) | HARDWARE
-============================================================================================
+Generated from notes/lowering-explorer.html
+Columns:  PLATFORM | OP | COMPMODE | TCBACKEND | SOURCE | MECHANISM
+====================================================================================================
 
-### rmsnorm         (RMSNorm)   — 29 chains
-   1  rmsnorm        eager      cuda   native    aten_cuda        nvidia 
-   2  rmsnorm        compile    cuda   native    inductor_triton  nvidia 
-   3  rmsnorm        cudagraph  cuda   native    inductor_triton  nvidia 
-   4  rmsnorm        eager      rocm   native    aten_rocm        amd    
-   5  rmsnorm        compile    rocm   native    inductor_triton  amd    
-   6  rmsnorm        cudagraph  rocm   native    inductor_triton  amd    
-   7  rmsnorm        eager      cpu    native    aten_cpu         cpu    
-   8  rmsnorm        compile    cpu    native    inductor_cpp     cpu    
-   9  rmsnorm        eager      xpu    native    aten_xpu         intel  
-  10  rmsnorm        compile    xpu    native    inductor_triton  intel  
-  11  rmsnorm        compile    tpu    native    xla              tpu    
-  12  rmsnorm        eager      cuda   custom    nvcc             nvidia 
-  13  rmsnorm        compile    cuda   custom    nvcc             nvidia 
-  14  rmsnorm        cudagraph  cuda   custom    nvcc             nvidia 
-  15  rmsnorm        eager      rocm   custom    hip              amd    
-  16  rmsnorm        compile    rocm   custom    hip              amd    
-  17  rmsnorm        cudagraph  rocm   custom    hip              amd    
-  18  rmsnorm        eager      cpu    custom    cpp              cpu    
-  19  rmsnorm        compile    cpu    custom    cpp              cpu    
-  20  rmsnorm        eager      xpu    custom    sycl             intel  
-  21  rmsnorm        compile    xpu    custom    sycl             intel  
-  22  rmsnorm        eager      cuda   triton    triton_ptx       nvidia 
-  23  rmsnorm        compile    cuda   triton    triton_ptx       nvidia 
-  24  rmsnorm        cudagraph  cuda   triton    triton_ptx       nvidia 
-  25  rmsnorm        eager      rocm   triton    triton_hip       amd    
-  26  rmsnorm        compile    rocm   triton    triton_hip       amd    
-  27  rmsnorm        cudagraph  rocm   triton    triton_hip       amd    
-  28  rmsnorm        eager      xpu    triton    triton_xpu       intel  
-  29  rmsnorm        compile    xpu    triton    triton_xpu       intel  
+### rmsnorm         (RMSNorm)   — 78 chains
+   1  cuda        rmsnorm     none        na          native      aten_cuda  
+   2  cuda        rmsnorm     stock       inductor    native      inductor_triton
+   3  cuda        rmsnorm     stock       eager       native      aten_cuda  
+   4  cuda        rmsnorm     trace_once  inductor    native      inductor_triton
+   5  cuda        rmsnorm     trace_once  eager       native      aten_cuda  
+   6  cuda        rmsnorm     vllm        inductor    native      inductor_triton
+   7  cuda        rmsnorm     vllm        eager       native      aten_cuda  
+   8  rocm        rmsnorm     none        na          native      aten_rocm  
+   9  rocm        rmsnorm     stock       inductor    native      inductor_triton
+  10  rocm        rmsnorm     stock       eager       native      aten_rocm  
+  11  rocm        rmsnorm     trace_once  inductor    native      inductor_triton
+  12  rocm        rmsnorm     trace_once  eager       native      aten_rocm  
+  13  rocm        rmsnorm     vllm        inductor    native      inductor_triton
+  14  rocm        rmsnorm     vllm        eager       native      aten_rocm  
+  15  cpu         rmsnorm     none        na          native      aten_cpu   
+  16  cpu         rmsnorm     stock       inductor    native      inductor_cpp
+  17  cpu         rmsnorm     stock       eager       native      aten_cpu   
+  18  cpu         rmsnorm     trace_once  inductor    native      inductor_cpp
+  19  cpu         rmsnorm     trace_once  eager       native      aten_cpu   
+  20  cpu         rmsnorm     vllm        inductor    native      inductor_cpp
+  21  cpu         rmsnorm     vllm        eager       native      aten_cpu   
+  22  xpu         rmsnorm     none        na          native      aten_xpu   
+  23  xpu         rmsnorm     stock       inductor    native      inductor_triton
+  24  xpu         rmsnorm     stock       eager       native      aten_xpu   
+  25  xpu         rmsnorm     trace_once  inductor    native      inductor_triton
+  26  xpu         rmsnorm     trace_once  eager       native      aten_xpu   
+  27  xpu         rmsnorm     vllm        inductor    native      inductor_triton
+  28  xpu         rmsnorm     vllm        eager       native      aten_xpu   
+  29  tpu         rmsnorm     stock       openxla     native      xla        
+  30  cuda        rmsnorm     none        na          custom      nvcc       
+  31  cuda        rmsnorm     stock       inductor    custom      nvcc       
+  32  cuda        rmsnorm     stock       eager       custom      nvcc       
+  33  cuda        rmsnorm     trace_once  inductor    custom      nvcc       
+  34  cuda        rmsnorm     trace_once  eager       custom      nvcc       
+  35  cuda        rmsnorm     vllm        inductor    custom      nvcc       
+  36  cuda        rmsnorm     vllm        eager       custom      nvcc       
+  37  rocm        rmsnorm     none        na          custom      hip        
+  38  rocm        rmsnorm     stock       inductor    custom      hip        
+  39  rocm        rmsnorm     stock       eager       custom      hip        
+  40  rocm        rmsnorm     trace_once  inductor    custom      hip        
+  41  rocm        rmsnorm     trace_once  eager       custom      hip        
+  42  rocm        rmsnorm     vllm        inductor    custom      hip        
+  43  rocm        rmsnorm     vllm        eager       custom      hip        
+  44  cpu         rmsnorm     none        na          custom      cpp        
+  45  cpu         rmsnorm     stock       inductor    custom      cpp        
+  46  cpu         rmsnorm     stock       eager       custom      cpp        
+  47  cpu         rmsnorm     trace_once  inductor    custom      cpp        
+  48  cpu         rmsnorm     trace_once  eager       custom      cpp        
+  49  cpu         rmsnorm     vllm        inductor    custom      cpp        
+  50  cpu         rmsnorm     vllm        eager       custom      cpp        
+  51  xpu         rmsnorm     none        na          custom      sycl       
+  52  xpu         rmsnorm     stock       inductor    custom      sycl       
+  53  xpu         rmsnorm     stock       eager       custom      sycl       
+  54  xpu         rmsnorm     trace_once  inductor    custom      sycl       
+  55  xpu         rmsnorm     trace_once  eager       custom      sycl       
+  56  xpu         rmsnorm     vllm        inductor    custom      sycl       
+  57  xpu         rmsnorm     vllm        eager       custom      sycl       
+  58  cuda        rmsnorm     none        na          triton      triton_ptx 
+  59  cuda        rmsnorm     stock       inductor    triton      triton_ptx 
+  60  cuda        rmsnorm     stock       eager       triton      triton_ptx 
+  61  cuda        rmsnorm     trace_once  inductor    triton      triton_ptx 
+  62  cuda        rmsnorm     trace_once  eager       triton      triton_ptx 
+  63  cuda        rmsnorm     vllm        inductor    triton      triton_ptx 
+  64  cuda        rmsnorm     vllm        eager       triton      triton_ptx 
+  65  rocm        rmsnorm     none        na          triton      triton_hip 
+  66  rocm        rmsnorm     stock       inductor    triton      triton_hip 
+  67  rocm        rmsnorm     stock       eager       triton      triton_hip 
+  68  rocm        rmsnorm     trace_once  inductor    triton      triton_hip 
+  69  rocm        rmsnorm     trace_once  eager       triton      triton_hip 
+  70  rocm        rmsnorm     vllm        inductor    triton      triton_hip 
+  71  rocm        rmsnorm     vllm        eager       triton      triton_hip 
+  72  xpu         rmsnorm     none        na          triton      triton_xpu 
+  73  xpu         rmsnorm     stock       inductor    triton      triton_xpu 
+  74  xpu         rmsnorm     stock       eager       triton      triton_xpu 
+  75  xpu         rmsnorm     trace_once  inductor    triton      triton_xpu 
+  76  xpu         rmsnorm     trace_once  eager       triton      triton_xpu 
+  77  xpu         rmsnorm     vllm        inductor    triton      triton_xpu 
+  78  xpu         rmsnorm     vllm        eager       triton      triton_xpu 
 
-### gemma_rmsnorm   (GemmaRMSNorm)   — 29 chains
-  30  gemma_rmsnorm  eager      cuda   native    aten_cuda        nvidia 
-  31  gemma_rmsnorm  compile    cuda   native    inductor_triton  nvidia 
-  32  gemma_rmsnorm  cudagraph  cuda   native    inductor_triton  nvidia 
-  33  gemma_rmsnorm  eager      rocm   native    aten_rocm        amd    
-  34  gemma_rmsnorm  compile    rocm   native    inductor_triton  amd    
-  35  gemma_rmsnorm  cudagraph  rocm   native    inductor_triton  amd    
-  36  gemma_rmsnorm  eager      cpu    native    aten_cpu         cpu    
-  37  gemma_rmsnorm  compile    cpu    native    inductor_cpp     cpu    
-  38  gemma_rmsnorm  eager      xpu    native    aten_xpu         intel  
-  39  gemma_rmsnorm  compile    xpu    native    inductor_triton  intel  
-  40  gemma_rmsnorm  compile    tpu    native    xla              tpu    
-  41  gemma_rmsnorm  eager      cuda   custom    nvcc             nvidia 
-  42  gemma_rmsnorm  compile    cuda   custom    nvcc             nvidia 
-  43  gemma_rmsnorm  cudagraph  cuda   custom    nvcc             nvidia 
-  44  gemma_rmsnorm  eager      rocm   custom    hip              amd    
-  45  gemma_rmsnorm  compile    rocm   custom    hip              amd    
-  46  gemma_rmsnorm  cudagraph  rocm   custom    hip              amd    
-  47  gemma_rmsnorm  eager      cpu    custom    cpp              cpu    
-  48  gemma_rmsnorm  compile    cpu    custom    cpp              cpu    
-  49  gemma_rmsnorm  eager      xpu    custom    sycl             intel  
-  50  gemma_rmsnorm  compile    xpu    custom    sycl             intel  
-  51  gemma_rmsnorm  eager      cuda   triton    triton_ptx       nvidia 
-  52  gemma_rmsnorm  compile    cuda   triton    triton_ptx       nvidia 
-  53  gemma_rmsnorm  cudagraph  cuda   triton    triton_ptx       nvidia 
-  54  gemma_rmsnorm  eager      rocm   triton    triton_hip       amd    
-  55  gemma_rmsnorm  compile    rocm   triton    triton_hip       amd    
-  56  gemma_rmsnorm  cudagraph  rocm   triton    triton_hip       amd    
-  57  gemma_rmsnorm  eager      xpu    triton    triton_xpu       intel  
-  58  gemma_rmsnorm  compile    xpu    triton    triton_xpu       intel  
+### gemma_rmsnorm   (GemmaRMSNorm)   — 57 chains
+  79  cuda        gemma_rmsnorm none        na          native      aten_cuda  
+  80  cuda        gemma_rmsnorm stock       inductor    native      inductor_triton
+  81  cuda        gemma_rmsnorm stock       eager       native      aten_cuda  
+  82  cuda        gemma_rmsnorm trace_once  inductor    native      inductor_triton
+  83  cuda        gemma_rmsnorm trace_once  eager       native      aten_cuda  
+  84  cuda        gemma_rmsnorm vllm        inductor    native      inductor_triton
+  85  cuda        gemma_rmsnorm vllm        eager       native      aten_cuda  
+  86  rocm        gemma_rmsnorm none        na          native      aten_rocm  
+  87  rocm        gemma_rmsnorm stock       inductor    native      inductor_triton
+  88  rocm        gemma_rmsnorm stock       eager       native      aten_rocm  
+  89  rocm        gemma_rmsnorm trace_once  inductor    native      inductor_triton
+  90  rocm        gemma_rmsnorm trace_once  eager       native      aten_rocm  
+  91  rocm        gemma_rmsnorm vllm        inductor    native      inductor_triton
+  92  rocm        gemma_rmsnorm vllm        eager       native      aten_rocm  
+  93  cpu         gemma_rmsnorm none        na          native      aten_cpu   
+  94  cpu         gemma_rmsnorm stock       inductor    native      inductor_cpp
+  95  cpu         gemma_rmsnorm stock       eager       native      aten_cpu   
+  96  cpu         gemma_rmsnorm trace_once  inductor    native      inductor_cpp
+  97  cpu         gemma_rmsnorm trace_once  eager       native      aten_cpu   
+  98  cpu         gemma_rmsnorm vllm        inductor    native      inductor_cpp
+  99  cpu         gemma_rmsnorm vllm        eager       native      aten_cpu   
+ 100  xpu         gemma_rmsnorm none        na          native      aten_xpu   
+ 101  xpu         gemma_rmsnorm stock       inductor    native      inductor_triton
+ 102  xpu         gemma_rmsnorm stock       eager       native      aten_xpu   
+ 103  xpu         gemma_rmsnorm trace_once  inductor    native      inductor_triton
+ 104  xpu         gemma_rmsnorm trace_once  eager       native      aten_xpu   
+ 105  xpu         gemma_rmsnorm vllm        inductor    native      inductor_triton
+ 106  xpu         gemma_rmsnorm vllm        eager       native      aten_xpu   
+ 107  tpu         gemma_rmsnorm stock       openxla     native      xla        
+ 108  cuda        gemma_rmsnorm none        na          custom      nvcc       
+ 109  cuda        gemma_rmsnorm stock       inductor    custom      nvcc       
+ 110  cuda        gemma_rmsnorm stock       eager       custom      nvcc       
+ 111  cuda        gemma_rmsnorm trace_once  inductor    custom      nvcc       
+ 112  cuda        gemma_rmsnorm trace_once  eager       custom      nvcc       
+ 113  cuda        gemma_rmsnorm vllm        inductor    custom      nvcc       
+ 114  cuda        gemma_rmsnorm vllm        eager       custom      nvcc       
+ 115  rocm        gemma_rmsnorm none        na          custom      hip        
+ 116  rocm        gemma_rmsnorm stock       inductor    custom      hip        
+ 117  rocm        gemma_rmsnorm stock       eager       custom      hip        
+ 118  rocm        gemma_rmsnorm trace_once  inductor    custom      hip        
+ 119  rocm        gemma_rmsnorm trace_once  eager       custom      hip        
+ 120  rocm        gemma_rmsnorm vllm        inductor    custom      hip        
+ 121  rocm        gemma_rmsnorm vllm        eager       custom      hip        
+ 122  cpu         gemma_rmsnorm none        na          custom      cpp        
+ 123  cpu         gemma_rmsnorm stock       inductor    custom      cpp        
+ 124  cpu         gemma_rmsnorm stock       eager       custom      cpp        
+ 125  cpu         gemma_rmsnorm trace_once  inductor    custom      cpp        
+ 126  cpu         gemma_rmsnorm trace_once  eager       custom      cpp        
+ 127  cpu         gemma_rmsnorm vllm        inductor    custom      cpp        
+ 128  cpu         gemma_rmsnorm vllm        eager       custom      cpp        
+ 129  xpu         gemma_rmsnorm none        na          custom      sycl       
+ 130  xpu         gemma_rmsnorm stock       inductor    custom      sycl       
+ 131  xpu         gemma_rmsnorm stock       eager       custom      sycl       
+ 132  xpu         gemma_rmsnorm trace_once  inductor    custom      sycl       
+ 133  xpu         gemma_rmsnorm trace_once  eager       custom      sycl       
+ 134  xpu         gemma_rmsnorm vllm        inductor    custom      sycl       
+ 135  xpu         gemma_rmsnorm vllm        eager       custom      sycl       
 
-### rmsnorm_gated   (RMSNormGated)   — 29 chains
-  59  rmsnorm_gated  eager      cuda   native    aten_cuda        nvidia 
-  60  rmsnorm_gated  compile    cuda   native    inductor_triton  nvidia 
-  61  rmsnorm_gated  cudagraph  cuda   native    inductor_triton  nvidia 
-  62  rmsnorm_gated  eager      rocm   native    aten_rocm        amd    
-  63  rmsnorm_gated  compile    rocm   native    inductor_triton  amd    
-  64  rmsnorm_gated  cudagraph  rocm   native    inductor_triton  amd    
-  65  rmsnorm_gated  eager      cpu    native    aten_cpu         cpu    
-  66  rmsnorm_gated  compile    cpu    native    inductor_cpp     cpu    
-  67  rmsnorm_gated  eager      xpu    native    aten_xpu         intel  
-  68  rmsnorm_gated  compile    xpu    native    inductor_triton  intel  
-  69  rmsnorm_gated  compile    tpu    native    xla              tpu    
-  70  rmsnorm_gated  eager      cuda   custom    nvcc             nvidia 
-  71  rmsnorm_gated  compile    cuda   custom    nvcc             nvidia 
-  72  rmsnorm_gated  cudagraph  cuda   custom    nvcc             nvidia 
-  73  rmsnorm_gated  eager      rocm   custom    hip              amd    
-  74  rmsnorm_gated  compile    rocm   custom    hip              amd    
-  75  rmsnorm_gated  cudagraph  rocm   custom    hip              amd    
-  76  rmsnorm_gated  eager      cpu    custom    cpp              cpu    
-  77  rmsnorm_gated  compile    cpu    custom    cpp              cpu    
-  78  rmsnorm_gated  eager      xpu    custom    sycl             intel  
-  79  rmsnorm_gated  compile    xpu    custom    sycl             intel  
-  80  rmsnorm_gated  eager      cuda   triton    triton_ptx       nvidia 
-  81  rmsnorm_gated  compile    cuda   triton    triton_ptx       nvidia 
-  82  rmsnorm_gated  cudagraph  cuda   triton    triton_ptx       nvidia 
-  83  rmsnorm_gated  eager      rocm   triton    triton_hip       amd    
-  84  rmsnorm_gated  compile    rocm   triton    triton_hip       amd    
-  85  rmsnorm_gated  cudagraph  rocm   triton    triton_hip       amd    
-  86  rmsnorm_gated  eager      xpu    triton    triton_xpu       intel  
-  87  rmsnorm_gated  compile    xpu    triton    triton_xpu       intel  
+### rmsnorm_gated   (RMSNormGated)   — 50 chains
+ 136  cuda        rmsnorm_gated none        na          native      aten_cuda  
+ 137  cuda        rmsnorm_gated stock       inductor    native      inductor_triton
+ 138  cuda        rmsnorm_gated stock       eager       native      aten_cuda  
+ 139  cuda        rmsnorm_gated trace_once  inductor    native      inductor_triton
+ 140  cuda        rmsnorm_gated trace_once  eager       native      aten_cuda  
+ 141  cuda        rmsnorm_gated vllm        inductor    native      inductor_triton
+ 142  cuda        rmsnorm_gated vllm        eager       native      aten_cuda  
+ 143  rocm        rmsnorm_gated none        na          native      aten_rocm  
+ 144  rocm        rmsnorm_gated stock       inductor    native      inductor_triton
+ 145  rocm        rmsnorm_gated stock       eager       native      aten_rocm  
+ 146  rocm        rmsnorm_gated trace_once  inductor    native      inductor_triton
+ 147  rocm        rmsnorm_gated trace_once  eager       native      aten_rocm  
+ 148  rocm        rmsnorm_gated vllm        inductor    native      inductor_triton
+ 149  rocm        rmsnorm_gated vllm        eager       native      aten_rocm  
+ 150  cpu         rmsnorm_gated none        na          native      aten_cpu   
+ 151  cpu         rmsnorm_gated stock       inductor    native      inductor_cpp
+ 152  cpu         rmsnorm_gated stock       eager       native      aten_cpu   
+ 153  cpu         rmsnorm_gated trace_once  inductor    native      inductor_cpp
+ 154  cpu         rmsnorm_gated trace_once  eager       native      aten_cpu   
+ 155  cpu         rmsnorm_gated vllm        inductor    native      inductor_cpp
+ 156  cpu         rmsnorm_gated vllm        eager       native      aten_cpu   
+ 157  xpu         rmsnorm_gated none        na          native      aten_xpu   
+ 158  xpu         rmsnorm_gated stock       inductor    native      inductor_triton
+ 159  xpu         rmsnorm_gated stock       eager       native      aten_xpu   
+ 160  xpu         rmsnorm_gated trace_once  inductor    native      inductor_triton
+ 161  xpu         rmsnorm_gated trace_once  eager       native      aten_xpu   
+ 162  xpu         rmsnorm_gated vllm        inductor    native      inductor_triton
+ 163  xpu         rmsnorm_gated vllm        eager       native      aten_xpu   
+ 164  tpu         rmsnorm_gated stock       openxla     native      xla        
+ 165  cuda        rmsnorm_gated none        na          triton      triton_ptx 
+ 166  cuda        rmsnorm_gated stock       inductor    triton      triton_ptx 
+ 167  cuda        rmsnorm_gated stock       eager       triton      triton_ptx 
+ 168  cuda        rmsnorm_gated trace_once  inductor    triton      triton_ptx 
+ 169  cuda        rmsnorm_gated trace_once  eager       triton      triton_ptx 
+ 170  cuda        rmsnorm_gated vllm        inductor    triton      triton_ptx 
+ 171  cuda        rmsnorm_gated vllm        eager       triton      triton_ptx 
+ 172  rocm        rmsnorm_gated none        na          triton      triton_hip 
+ 173  rocm        rmsnorm_gated stock       inductor    triton      triton_hip 
+ 174  rocm        rmsnorm_gated stock       eager       triton      triton_hip 
+ 175  rocm        rmsnorm_gated trace_once  inductor    triton      triton_hip 
+ 176  rocm        rmsnorm_gated trace_once  eager       triton      triton_hip 
+ 177  rocm        rmsnorm_gated vllm        inductor    triton      triton_hip 
+ 178  rocm        rmsnorm_gated vllm        eager       triton      triton_hip 
+ 179  xpu         rmsnorm_gated none        na          triton      triton_xpu 
+ 180  xpu         rmsnorm_gated stock       inductor    triton      triton_xpu 
+ 181  xpu         rmsnorm_gated stock       eager       triton      triton_xpu 
+ 182  xpu         rmsnorm_gated trace_once  inductor    triton      triton_xpu 
+ 183  xpu         rmsnorm_gated trace_once  eager       triton      triton_xpu 
+ 184  xpu         rmsnorm_gated vllm        inductor    triton      triton_xpu 
+ 185  xpu         rmsnorm_gated vllm        eager       triton      triton_xpu 
 
-### silu            (SiluAndMul)   — 29 chains
-  88  silu           eager      cuda   native    aten_cuda        nvidia 
-  89  silu           compile    cuda   native    inductor_triton  nvidia 
-  90  silu           cudagraph  cuda   native    inductor_triton  nvidia 
-  91  silu           eager      rocm   native    aten_rocm        amd    
-  92  silu           compile    rocm   native    inductor_triton  amd    
-  93  silu           cudagraph  rocm   native    inductor_triton  amd    
-  94  silu           eager      cpu    native    aten_cpu         cpu    
-  95  silu           compile    cpu    native    inductor_cpp     cpu    
-  96  silu           eager      xpu    native    aten_xpu         intel  
-  97  silu           compile    xpu    native    inductor_triton  intel  
-  98  silu           compile    tpu    native    xla              tpu    
-  99  silu           eager      cuda   custom    nvcc             nvidia 
- 100  silu           compile    cuda   custom    nvcc             nvidia 
- 101  silu           cudagraph  cuda   custom    nvcc             nvidia 
- 102  silu           eager      rocm   custom    hip              amd    
- 103  silu           compile    rocm   custom    hip              amd    
- 104  silu           cudagraph  rocm   custom    hip              amd    
- 105  silu           eager      cpu    custom    cpp              cpu    
- 106  silu           compile    cpu    custom    cpp              cpu    
- 107  silu           eager      xpu    custom    sycl             intel  
- 108  silu           compile    xpu    custom    sycl             intel  
- 109  silu           eager      cuda   triton    triton_ptx       nvidia 
- 110  silu           compile    cuda   triton    triton_ptx       nvidia 
- 111  silu           cudagraph  cuda   triton    triton_ptx       nvidia 
- 112  silu           eager      rocm   triton    triton_hip       amd    
- 113  silu           compile    rocm   triton    triton_hip       amd    
- 114  silu           cudagraph  rocm   triton    triton_hip       amd    
- 115  silu           eager      xpu    triton    triton_xpu       intel  
- 116  silu           compile    xpu    triton    triton_xpu       intel  
+### silu            (SiluAndMul)   — 57 chains
+ 186  cuda        silu        none        na          native      aten_cuda  
+ 187  cuda        silu        stock       inductor    native      inductor_triton
+ 188  cuda        silu        stock       eager       native      aten_cuda  
+ 189  cuda        silu        trace_once  inductor    native      inductor_triton
+ 190  cuda        silu        trace_once  eager       native      aten_cuda  
+ 191  cuda        silu        vllm        inductor    native      inductor_triton
+ 192  cuda        silu        vllm        eager       native      aten_cuda  
+ 193  rocm        silu        none        na          native      aten_rocm  
+ 194  rocm        silu        stock       inductor    native      inductor_triton
+ 195  rocm        silu        stock       eager       native      aten_rocm  
+ 196  rocm        silu        trace_once  inductor    native      inductor_triton
+ 197  rocm        silu        trace_once  eager       native      aten_rocm  
+ 198  rocm        silu        vllm        inductor    native      inductor_triton
+ 199  rocm        silu        vllm        eager       native      aten_rocm  
+ 200  cpu         silu        none        na          native      aten_cpu   
+ 201  cpu         silu        stock       inductor    native      inductor_cpp
+ 202  cpu         silu        stock       eager       native      aten_cpu   
+ 203  cpu         silu        trace_once  inductor    native      inductor_cpp
+ 204  cpu         silu        trace_once  eager       native      aten_cpu   
+ 205  cpu         silu        vllm        inductor    native      inductor_cpp
+ 206  cpu         silu        vllm        eager       native      aten_cpu   
+ 207  xpu         silu        none        na          native      aten_xpu   
+ 208  xpu         silu        stock       inductor    native      inductor_triton
+ 209  xpu         silu        stock       eager       native      aten_xpu   
+ 210  xpu         silu        trace_once  inductor    native      inductor_triton
+ 211  xpu         silu        trace_once  eager       native      aten_xpu   
+ 212  xpu         silu        vllm        inductor    native      inductor_triton
+ 213  xpu         silu        vllm        eager       native      aten_xpu   
+ 214  tpu         silu        stock       openxla     native      xla        
+ 215  cuda        silu        none        na          custom      nvcc       
+ 216  cuda        silu        stock       inductor    custom      nvcc       
+ 217  cuda        silu        stock       eager       custom      nvcc       
+ 218  cuda        silu        trace_once  inductor    custom      nvcc       
+ 219  cuda        silu        trace_once  eager       custom      nvcc       
+ 220  cuda        silu        vllm        inductor    custom      nvcc       
+ 221  cuda        silu        vllm        eager       custom      nvcc       
+ 222  rocm        silu        none        na          custom      hip        
+ 223  rocm        silu        stock       inductor    custom      hip        
+ 224  rocm        silu        stock       eager       custom      hip        
+ 225  rocm        silu        trace_once  inductor    custom      hip        
+ 226  rocm        silu        trace_once  eager       custom      hip        
+ 227  rocm        silu        vllm        inductor    custom      hip        
+ 228  rocm        silu        vllm        eager       custom      hip        
+ 229  cpu         silu        none        na          custom      cpp        
+ 230  cpu         silu        stock       inductor    custom      cpp        
+ 231  cpu         silu        stock       eager       custom      cpp        
+ 232  cpu         silu        trace_once  inductor    custom      cpp        
+ 233  cpu         silu        trace_once  eager       custom      cpp        
+ 234  cpu         silu        vllm        inductor    custom      cpp        
+ 235  cpu         silu        vllm        eager       custom      cpp        
+ 236  xpu         silu        none        na          custom      sycl       
+ 237  xpu         silu        stock       inductor    custom      sycl       
+ 238  xpu         silu        stock       eager       custom      sycl       
+ 239  xpu         silu        trace_once  inductor    custom      sycl       
+ 240  xpu         silu        trace_once  eager       custom      sycl       
+ 241  xpu         silu        vllm        inductor    custom      sycl       
+ 242  xpu         silu        vllm        eager       custom      sycl       
 
-### gelu            (GeluAndMul)   — 29 chains
- 117  gelu           eager      cuda   native    aten_cuda        nvidia 
- 118  gelu           compile    cuda   native    inductor_triton  nvidia 
- 119  gelu           cudagraph  cuda   native    inductor_triton  nvidia 
- 120  gelu           eager      rocm   native    aten_rocm        amd    
- 121  gelu           compile    rocm   native    inductor_triton  amd    
- 122  gelu           cudagraph  rocm   native    inductor_triton  amd    
- 123  gelu           eager      cpu    native    aten_cpu         cpu    
- 124  gelu           compile    cpu    native    inductor_cpp     cpu    
- 125  gelu           eager      xpu    native    aten_xpu         intel  
- 126  gelu           compile    xpu    native    inductor_triton  intel  
- 127  gelu           compile    tpu    native    xla              tpu    
- 128  gelu           eager      cuda   custom    nvcc             nvidia 
- 129  gelu           compile    cuda   custom    nvcc             nvidia 
- 130  gelu           cudagraph  cuda   custom    nvcc             nvidia 
- 131  gelu           eager      rocm   custom    hip              amd    
- 132  gelu           compile    rocm   custom    hip              amd    
- 133  gelu           cudagraph  rocm   custom    hip              amd    
- 134  gelu           eager      cpu    custom    cpp              cpu    
- 135  gelu           compile    cpu    custom    cpp              cpu    
- 136  gelu           eager      xpu    custom    sycl             intel  
- 137  gelu           compile    xpu    custom    sycl             intel  
- 138  gelu           eager      cuda   triton    triton_ptx       nvidia 
- 139  gelu           compile    cuda   triton    triton_ptx       nvidia 
- 140  gelu           cudagraph  cuda   triton    triton_ptx       nvidia 
- 141  gelu           eager      rocm   triton    triton_hip       amd    
- 142  gelu           compile    rocm   triton    triton_hip       amd    
- 143  gelu           cudagraph  rocm   triton    triton_hip       amd    
- 144  gelu           eager      xpu    triton    triton_xpu       intel  
- 145  gelu           compile    xpu    triton    triton_xpu       intel  
+### gelu            (GeluAndMul)   — 57 chains
+ 243  cuda        gelu        none        na          native      aten_cuda  
+ 244  cuda        gelu        stock       inductor    native      inductor_triton
+ 245  cuda        gelu        stock       eager       native      aten_cuda  
+ 246  cuda        gelu        trace_once  inductor    native      inductor_triton
+ 247  cuda        gelu        trace_once  eager       native      aten_cuda  
+ 248  cuda        gelu        vllm        inductor    native      inductor_triton
+ 249  cuda        gelu        vllm        eager       native      aten_cuda  
+ 250  rocm        gelu        none        na          native      aten_rocm  
+ 251  rocm        gelu        stock       inductor    native      inductor_triton
+ 252  rocm        gelu        stock       eager       native      aten_rocm  
+ 253  rocm        gelu        trace_once  inductor    native      inductor_triton
+ 254  rocm        gelu        trace_once  eager       native      aten_rocm  
+ 255  rocm        gelu        vllm        inductor    native      inductor_triton
+ 256  rocm        gelu        vllm        eager       native      aten_rocm  
+ 257  cpu         gelu        none        na          native      aten_cpu   
+ 258  cpu         gelu        stock       inductor    native      inductor_cpp
+ 259  cpu         gelu        stock       eager       native      aten_cpu   
+ 260  cpu         gelu        trace_once  inductor    native      inductor_cpp
+ 261  cpu         gelu        trace_once  eager       native      aten_cpu   
+ 262  cpu         gelu        vllm        inductor    native      inductor_cpp
+ 263  cpu         gelu        vllm        eager       native      aten_cpu   
+ 264  xpu         gelu        none        na          native      aten_xpu   
+ 265  xpu         gelu        stock       inductor    native      inductor_triton
+ 266  xpu         gelu        stock       eager       native      aten_xpu   
+ 267  xpu         gelu        trace_once  inductor    native      inductor_triton
+ 268  xpu         gelu        trace_once  eager       native      aten_xpu   
+ 269  xpu         gelu        vllm        inductor    native      inductor_triton
+ 270  xpu         gelu        vllm        eager       native      aten_xpu   
+ 271  tpu         gelu        stock       openxla     native      xla        
+ 272  cuda        gelu        none        na          custom      nvcc       
+ 273  cuda        gelu        stock       inductor    custom      nvcc       
+ 274  cuda        gelu        stock       eager       custom      nvcc       
+ 275  cuda        gelu        trace_once  inductor    custom      nvcc       
+ 276  cuda        gelu        trace_once  eager       custom      nvcc       
+ 277  cuda        gelu        vllm        inductor    custom      nvcc       
+ 278  cuda        gelu        vllm        eager       custom      nvcc       
+ 279  rocm        gelu        none        na          custom      hip        
+ 280  rocm        gelu        stock       inductor    custom      hip        
+ 281  rocm        gelu        stock       eager       custom      hip        
+ 282  rocm        gelu        trace_once  inductor    custom      hip        
+ 283  rocm        gelu        trace_once  eager       custom      hip        
+ 284  rocm        gelu        vllm        inductor    custom      hip        
+ 285  rocm        gelu        vllm        eager       custom      hip        
+ 286  cpu         gelu        none        na          custom      cpp        
+ 287  cpu         gelu        stock       inductor    custom      cpp        
+ 288  cpu         gelu        stock       eager       custom      cpp        
+ 289  cpu         gelu        trace_once  inductor    custom      cpp        
+ 290  cpu         gelu        trace_once  eager       custom      cpp        
+ 291  cpu         gelu        vllm        inductor    custom      cpp        
+ 292  cpu         gelu        vllm        eager       custom      cpp        
+ 293  xpu         gelu        none        na          custom      sycl       
+ 294  xpu         gelu        stock       inductor    custom      sycl       
+ 295  xpu         gelu        stock       eager       custom      sycl       
+ 296  xpu         gelu        trace_once  inductor    custom      sycl       
+ 297  xpu         gelu        trace_once  eager       custom      sycl       
+ 298  xpu         gelu        vllm        inductor    custom      sycl       
+ 299  xpu         gelu        vllm        eager       custom      sycl       
 
-### quick_gelu      (QuickGELU)   — 29 chains
- 146  quick_gelu     eager      cuda   native    aten_cuda        nvidia 
- 147  quick_gelu     compile    cuda   native    inductor_triton  nvidia 
- 148  quick_gelu     cudagraph  cuda   native    inductor_triton  nvidia 
- 149  quick_gelu     eager      rocm   native    aten_rocm        amd    
- 150  quick_gelu     compile    rocm   native    inductor_triton  amd    
- 151  quick_gelu     cudagraph  rocm   native    inductor_triton  amd    
- 152  quick_gelu     eager      cpu    native    aten_cpu         cpu    
- 153  quick_gelu     compile    cpu    native    inductor_cpp     cpu    
- 154  quick_gelu     eager      xpu    native    aten_xpu         intel  
- 155  quick_gelu     compile    xpu    native    inductor_triton  intel  
- 156  quick_gelu     compile    tpu    native    xla              tpu    
- 157  quick_gelu     eager      cuda   custom    nvcc             nvidia 
- 158  quick_gelu     compile    cuda   custom    nvcc             nvidia 
- 159  quick_gelu     cudagraph  cuda   custom    nvcc             nvidia 
- 160  quick_gelu     eager      rocm   custom    hip              amd    
- 161  quick_gelu     compile    rocm   custom    hip              amd    
- 162  quick_gelu     cudagraph  rocm   custom    hip              amd    
- 163  quick_gelu     eager      cpu    custom    cpp              cpu    
- 164  quick_gelu     compile    cpu    custom    cpp              cpu    
- 165  quick_gelu     eager      xpu    custom    sycl             intel  
- 166  quick_gelu     compile    xpu    custom    sycl             intel  
- 167  quick_gelu     eager      cuda   triton    triton_ptx       nvidia 
- 168  quick_gelu     compile    cuda   triton    triton_ptx       nvidia 
- 169  quick_gelu     cudagraph  cuda   triton    triton_ptx       nvidia 
- 170  quick_gelu     eager      rocm   triton    triton_hip       amd    
- 171  quick_gelu     compile    rocm   triton    triton_hip       amd    
- 172  quick_gelu     cudagraph  rocm   triton    triton_hip       amd    
- 173  quick_gelu     eager      xpu    triton    triton_xpu       intel  
- 174  quick_gelu     compile    xpu    triton    triton_xpu       intel  
+### quick_gelu      (QuickGELU)   — 57 chains
+ 300  cuda        quick_gelu  none        na          native      aten_cuda  
+ 301  cuda        quick_gelu  stock       inductor    native      inductor_triton
+ 302  cuda        quick_gelu  stock       eager       native      aten_cuda  
+ 303  cuda        quick_gelu  trace_once  inductor    native      inductor_triton
+ 304  cuda        quick_gelu  trace_once  eager       native      aten_cuda  
+ 305  cuda        quick_gelu  vllm        inductor    native      inductor_triton
+ 306  cuda        quick_gelu  vllm        eager       native      aten_cuda  
+ 307  rocm        quick_gelu  none        na          native      aten_rocm  
+ 308  rocm        quick_gelu  stock       inductor    native      inductor_triton
+ 309  rocm        quick_gelu  stock       eager       native      aten_rocm  
+ 310  rocm        quick_gelu  trace_once  inductor    native      inductor_triton
+ 311  rocm        quick_gelu  trace_once  eager       native      aten_rocm  
+ 312  rocm        quick_gelu  vllm        inductor    native      inductor_triton
+ 313  rocm        quick_gelu  vllm        eager       native      aten_rocm  
+ 314  cpu         quick_gelu  none        na          native      aten_cpu   
+ 315  cpu         quick_gelu  stock       inductor    native      inductor_cpp
+ 316  cpu         quick_gelu  stock       eager       native      aten_cpu   
+ 317  cpu         quick_gelu  trace_once  inductor    native      inductor_cpp
+ 318  cpu         quick_gelu  trace_once  eager       native      aten_cpu   
+ 319  cpu         quick_gelu  vllm        inductor    native      inductor_cpp
+ 320  cpu         quick_gelu  vllm        eager       native      aten_cpu   
+ 321  xpu         quick_gelu  none        na          native      aten_xpu   
+ 322  xpu         quick_gelu  stock       inductor    native      inductor_triton
+ 323  xpu         quick_gelu  stock       eager       native      aten_xpu   
+ 324  xpu         quick_gelu  trace_once  inductor    native      inductor_triton
+ 325  xpu         quick_gelu  trace_once  eager       native      aten_xpu   
+ 326  xpu         quick_gelu  vllm        inductor    native      inductor_triton
+ 327  xpu         quick_gelu  vllm        eager       native      aten_xpu   
+ 328  tpu         quick_gelu  stock       openxla     native      xla        
+ 329  cuda        quick_gelu  none        na          custom      nvcc       
+ 330  cuda        quick_gelu  stock       inductor    custom      nvcc       
+ 331  cuda        quick_gelu  stock       eager       custom      nvcc       
+ 332  cuda        quick_gelu  trace_once  inductor    custom      nvcc       
+ 333  cuda        quick_gelu  trace_once  eager       custom      nvcc       
+ 334  cuda        quick_gelu  vllm        inductor    custom      nvcc       
+ 335  cuda        quick_gelu  vllm        eager       custom      nvcc       
+ 336  rocm        quick_gelu  none        na          custom      hip        
+ 337  rocm        quick_gelu  stock       inductor    custom      hip        
+ 338  rocm        quick_gelu  stock       eager       custom      hip        
+ 339  rocm        quick_gelu  trace_once  inductor    custom      hip        
+ 340  rocm        quick_gelu  trace_once  eager       custom      hip        
+ 341  rocm        quick_gelu  vllm        inductor    custom      hip        
+ 342  rocm        quick_gelu  vllm        eager       custom      hip        
+ 343  cpu         quick_gelu  none        na          custom      cpp        
+ 344  cpu         quick_gelu  stock       inductor    custom      cpp        
+ 345  cpu         quick_gelu  stock       eager       custom      cpp        
+ 346  cpu         quick_gelu  trace_once  inductor    custom      cpp        
+ 347  cpu         quick_gelu  trace_once  eager       custom      cpp        
+ 348  cpu         quick_gelu  vllm        inductor    custom      cpp        
+ 349  cpu         quick_gelu  vllm        eager       custom      cpp        
+ 350  xpu         quick_gelu  none        na          custom      sycl       
+ 351  xpu         quick_gelu  stock       inductor    custom      sycl       
+ 352  xpu         quick_gelu  stock       eager       custom      sycl       
+ 353  xpu         quick_gelu  trace_once  inductor    custom      sycl       
+ 354  xpu         quick_gelu  trace_once  eager       custom      sycl       
+ 355  xpu         quick_gelu  vllm        inductor    custom      sycl       
+ 356  xpu         quick_gelu  vllm        eager       custom      sycl       
 
-### rope            (RotaryEmbedding)   — 27 chains
- 175  rope           eager      cuda   native    aten_cuda        nvidia 
- 176  rope           compile    cuda   native    inductor_triton  nvidia 
- 177  rope           cudagraph  cuda   native    inductor_triton  nvidia 
- 178  rope           eager      rocm   native    aten_rocm        amd    
- 179  rope           compile    rocm   native    inductor_triton  amd    
- 180  rope           cudagraph  rocm   native    inductor_triton  amd    
- 181  rope           eager      cpu    native    aten_cpu         cpu    
- 182  rope           compile    cpu    native    inductor_cpp     cpu    
- 183  rope           eager      xpu    native    aten_xpu         intel  
- 184  rope           compile    xpu    native    inductor_triton  intel  
- 185  rope           compile    tpu    native    xla              tpu    
- 186  rope           eager      cuda   custom    nvcc             nvidia 
- 187  rope           compile    cuda   custom    nvcc             nvidia 
- 188  rope           cudagraph  cuda   custom    nvcc             nvidia 
- 189  rope           eager      rocm   custom    hip              amd    
- 190  rope           compile    rocm   custom    hip              amd    
- 191  rope           cudagraph  rocm   custom    hip              amd    
- 192  rope           eager      cpu    custom    cpp              cpu    
- 193  rope           compile    cpu    custom    cpp              cpu    
- 194  rope           eager      cuda   triton    triton_ptx       nvidia 
- 195  rope           compile    cuda   triton    triton_ptx       nvidia 
- 196  rope           cudagraph  cuda   triton    triton_ptx       nvidia 
- 197  rope           eager      rocm   triton    triton_hip       amd    
- 198  rope           compile    rocm   triton    triton_hip       amd    
- 199  rope           cudagraph  rocm   triton    triton_hip       amd    
- 200  rope           eager      xpu    triton    triton_xpu       intel  
- 201  rope           compile    xpu    triton    triton_xpu       intel  
+### rope            (RotaryEmbedding)   — 71 chains
+ 357  cuda        rope        none        na          native      aten_cuda  
+ 358  cuda        rope        stock       inductor    native      inductor_triton
+ 359  cuda        rope        stock       eager       native      aten_cuda  
+ 360  cuda        rope        trace_once  inductor    native      inductor_triton
+ 361  cuda        rope        trace_once  eager       native      aten_cuda  
+ 362  cuda        rope        vllm        inductor    native      inductor_triton
+ 363  cuda        rope        vllm        eager       native      aten_cuda  
+ 364  rocm        rope        none        na          native      aten_rocm  
+ 365  rocm        rope        stock       inductor    native      inductor_triton
+ 366  rocm        rope        stock       eager       native      aten_rocm  
+ 367  rocm        rope        trace_once  inductor    native      inductor_triton
+ 368  rocm        rope        trace_once  eager       native      aten_rocm  
+ 369  rocm        rope        vllm        inductor    native      inductor_triton
+ 370  rocm        rope        vllm        eager       native      aten_rocm  
+ 371  cpu         rope        none        na          native      aten_cpu   
+ 372  cpu         rope        stock       inductor    native      inductor_cpp
+ 373  cpu         rope        stock       eager       native      aten_cpu   
+ 374  cpu         rope        trace_once  inductor    native      inductor_cpp
+ 375  cpu         rope        trace_once  eager       native      aten_cpu   
+ 376  cpu         rope        vllm        inductor    native      inductor_cpp
+ 377  cpu         rope        vllm        eager       native      aten_cpu   
+ 378  xpu         rope        none        na          native      aten_xpu   
+ 379  xpu         rope        stock       inductor    native      inductor_triton
+ 380  xpu         rope        stock       eager       native      aten_xpu   
+ 381  xpu         rope        trace_once  inductor    native      inductor_triton
+ 382  xpu         rope        trace_once  eager       native      aten_xpu   
+ 383  xpu         rope        vllm        inductor    native      inductor_triton
+ 384  xpu         rope        vllm        eager       native      aten_xpu   
+ 385  tpu         rope        stock       openxla     native      xla        
+ 386  cuda        rope        none        na          custom      nvcc       
+ 387  cuda        rope        stock       inductor    custom      nvcc       
+ 388  cuda        rope        stock       eager       custom      nvcc       
+ 389  cuda        rope        trace_once  inductor    custom      nvcc       
+ 390  cuda        rope        trace_once  eager       custom      nvcc       
+ 391  cuda        rope        vllm        inductor    custom      nvcc       
+ 392  cuda        rope        vllm        eager       custom      nvcc       
+ 393  rocm        rope        none        na          custom      hip        
+ 394  rocm        rope        stock       inductor    custom      hip        
+ 395  rocm        rope        stock       eager       custom      hip        
+ 396  rocm        rope        trace_once  inductor    custom      hip        
+ 397  rocm        rope        trace_once  eager       custom      hip        
+ 398  rocm        rope        vllm        inductor    custom      hip        
+ 399  rocm        rope        vllm        eager       custom      hip        
+ 400  cpu         rope        none        na          custom      cpp        
+ 401  cpu         rope        stock       inductor    custom      cpp        
+ 402  cpu         rope        stock       eager       custom      cpp        
+ 403  cpu         rope        trace_once  inductor    custom      cpp        
+ 404  cpu         rope        trace_once  eager       custom      cpp        
+ 405  cpu         rope        vllm        inductor    custom      cpp        
+ 406  cpu         rope        vllm        eager       custom      cpp        
+ 407  cuda        rope        none        na          triton      triton_ptx 
+ 408  cuda        rope        stock       inductor    triton      triton_ptx 
+ 409  cuda        rope        stock       eager       triton      triton_ptx 
+ 410  cuda        rope        trace_once  inductor    triton      triton_ptx 
+ 411  cuda        rope        trace_once  eager       triton      triton_ptx 
+ 412  cuda        rope        vllm        inductor    triton      triton_ptx 
+ 413  cuda        rope        vllm        eager       triton      triton_ptx 
+ 414  rocm        rope        none        na          triton      triton_hip 
+ 415  rocm        rope        stock       inductor    triton      triton_hip 
+ 416  rocm        rope        stock       eager       triton      triton_hip 
+ 417  rocm        rope        trace_once  inductor    triton      triton_hip 
+ 418  rocm        rope        trace_once  eager       triton      triton_hip 
+ 419  rocm        rope        vllm        inductor    triton      triton_hip 
+ 420  rocm        rope        vllm        eager       triton      triton_hip 
+ 421  xpu         rope        none        na          triton      triton_xpu 
+ 422  xpu         rope        stock       inductor    triton      triton_xpu 
+ 423  xpu         rope        stock       eager       triton      triton_xpu 
+ 424  xpu         rope        trace_once  inductor    triton      triton_xpu 
+ 425  xpu         rope        trace_once  eager       triton      triton_xpu 
+ 426  xpu         rope        vllm        inductor    triton      triton_xpu 
+ 427  xpu         rope        vllm        eager       triton      triton_xpu 
 
-### attn            (Attention)   — 27 chains
- 202  attn           eager      cuda   native    aten_cuda        nvidia 
- 203  attn           compile    cuda   native    inductor_triton  nvidia 
- 204  attn           cudagraph  cuda   native    inductor_triton  nvidia 
- 205  attn           eager      cpu    native    aten_cpu         cpu    
- 206  attn           compile    cpu    native    inductor_cpp     cpu    
- 207  attn           compile    tpu    native    xla              tpu    
- 208  attn           eager      cuda   custom    nvcc             nvidia 
- 209  attn           compile    cuda   custom    nvcc             nvidia 
- 210  attn           cudagraph  cuda   custom    nvcc             nvidia 
- 211  attn           eager      rocm   custom    hip              amd    
- 212  attn           compile    rocm   custom    hip              amd    
- 213  attn           cudagraph  rocm   custom    hip              amd    
- 214  attn           eager      cuda   triton    triton_ptx       nvidia 
- 215  attn           compile    cuda   triton    triton_ptx       nvidia 
- 216  attn           cudagraph  cuda   triton    triton_ptx       nvidia 
- 217  attn           eager      rocm   triton    triton_hip       amd    
- 218  attn           compile    rocm   triton    triton_hip       amd    
- 219  attn           cudagraph  rocm   triton    triton_hip       amd    
- 220  attn           eager      xpu    triton    triton_xpu       intel  
- 221  attn           compile    xpu    triton    triton_xpu       intel  
- 222  attn           eager      cuda   external  vendor           nvidia 
- 223  attn           compile    cuda   external  vendor           nvidia 
- 224  attn           cudagraph  cuda   external  vendor           nvidia 
- 225  attn           eager      rocm   external  aiter            amd    
- 226  attn           compile    rocm   external  aiter            amd    
- 227  attn           cudagraph  rocm   external  aiter            amd    
- 228  attn           compile    tpu    external  xla              tpu    
+### attn            (Attention)   — 65 chains
+ 428  cuda        attn        none        na          native      aten_cuda  
+ 429  cuda        attn        stock       inductor    native      inductor_triton
+ 430  cuda        attn        stock       eager       native      aten_cuda  
+ 431  cuda        attn        trace_once  inductor    native      inductor_triton
+ 432  cuda        attn        trace_once  eager       native      aten_cuda  
+ 433  cuda        attn        vllm        inductor    native      inductor_triton
+ 434  cuda        attn        vllm        eager       native      aten_cuda  
+ 435  cpu         attn        none        na          native      aten_cpu   
+ 436  cpu         attn        stock       inductor    native      inductor_cpp
+ 437  cpu         attn        stock       eager       native      aten_cpu   
+ 438  cpu         attn        trace_once  inductor    native      inductor_cpp
+ 439  cpu         attn        trace_once  eager       native      aten_cpu   
+ 440  cpu         attn        vllm        inductor    native      inductor_cpp
+ 441  cpu         attn        vllm        eager       native      aten_cpu   
+ 442  tpu         attn        stock       openxla     native      xla        
+ 443  cuda        attn        none        na          custom      nvcc       
+ 444  cuda        attn        stock       inductor    custom      nvcc       
+ 445  cuda        attn        stock       eager       custom      nvcc       
+ 446  cuda        attn        trace_once  inductor    custom      nvcc       
+ 447  cuda        attn        trace_once  eager       custom      nvcc       
+ 448  cuda        attn        vllm        inductor    custom      nvcc       
+ 449  cuda        attn        vllm        eager       custom      nvcc       
+ 450  rocm        attn        none        na          custom      hip        
+ 451  rocm        attn        stock       inductor    custom      hip        
+ 452  rocm        attn        stock       eager       custom      hip        
+ 453  rocm        attn        trace_once  inductor    custom      hip        
+ 454  rocm        attn        trace_once  eager       custom      hip        
+ 455  rocm        attn        vllm        inductor    custom      hip        
+ 456  rocm        attn        vllm        eager       custom      hip        
+ 457  cuda        attn        none        na          triton      triton_ptx 
+ 458  cuda        attn        stock       inductor    triton      triton_ptx 
+ 459  cuda        attn        stock       eager       triton      triton_ptx 
+ 460  cuda        attn        trace_once  inductor    triton      triton_ptx 
+ 461  cuda        attn        trace_once  eager       triton      triton_ptx 
+ 462  cuda        attn        vllm        inductor    triton      triton_ptx 
+ 463  cuda        attn        vllm        eager       triton      triton_ptx 
+ 464  rocm        attn        none        na          triton      triton_hip 
+ 465  rocm        attn        stock       inductor    triton      triton_hip 
+ 466  rocm        attn        stock       eager       triton      triton_hip 
+ 467  rocm        attn        trace_once  inductor    triton      triton_hip 
+ 468  rocm        attn        trace_once  eager       triton      triton_hip 
+ 469  rocm        attn        vllm        inductor    triton      triton_hip 
+ 470  rocm        attn        vllm        eager       triton      triton_hip 
+ 471  xpu         attn        none        na          triton      triton_xpu 
+ 472  xpu         attn        stock       inductor    triton      triton_xpu 
+ 473  xpu         attn        stock       eager       triton      triton_xpu 
+ 474  xpu         attn        trace_once  inductor    triton      triton_xpu 
+ 475  xpu         attn        trace_once  eager       triton      triton_xpu 
+ 476  xpu         attn        vllm        inductor    triton      triton_xpu 
+ 477  xpu         attn        vllm        eager       triton      triton_xpu 
+ 478  cuda        attn        none        na          external    vendor     
+ 479  cuda        attn        stock       inductor    external    vendor     
+ 480  cuda        attn        stock       eager       external    vendor     
+ 481  cuda        attn        trace_once  inductor    external    vendor     
+ 482  cuda        attn        trace_once  eager       external    vendor     
+ 483  cuda        attn        vllm        inductor    external    vendor     
+ 484  cuda        attn        vllm        eager       external    vendor     
+ 485  rocm        attn        none        na          external    aiter      
+ 486  rocm        attn        stock       inductor    external    aiter      
+ 487  rocm        attn        stock       eager       external    aiter      
+ 488  rocm        attn        trace_once  inductor    external    aiter      
+ 489  rocm        attn        trace_once  eager       external    aiter      
+ 490  rocm        attn        vllm        inductor    external    aiter      
+ 491  rocm        attn        vllm        eager       external    aiter      
+ 492  tpu         attn        stock       openxla     external    xla        
 
-### mla             (MLA)   — 18 chains
- 229  mla            eager      cpu    native    aten_cpu         cpu    
- 230  mla            compile    cpu    native    inductor_cpp     cpu    
- 231  mla            compile    tpu    native    xla              tpu    
- 232  mla            eager      cuda   custom    nvcc             nvidia 
- 233  mla            compile    cuda   custom    nvcc             nvidia 
- 234  mla            cudagraph  cuda   custom    nvcc             nvidia 
- 235  mla            eager      cuda   triton    triton_ptx       nvidia 
- 236  mla            compile    cuda   triton    triton_ptx       nvidia 
- 237  mla            cudagraph  cuda   triton    triton_ptx       nvidia 
- 238  mla            eager      rocm   triton    triton_hip       amd    
- 239  mla            compile    rocm   triton    triton_hip       amd    
- 240  mla            cudagraph  rocm   triton    triton_hip       amd    
- 241  mla            eager      cuda   external  vendor           nvidia 
- 242  mla            compile    cuda   external  vendor           nvidia 
- 243  mla            cudagraph  cuda   external  vendor           nvidia 
- 244  mla            eager      rocm   external  aiter            amd    
- 245  mla            compile    rocm   external  aiter            amd    
- 246  mla            cudagraph  rocm   external  aiter            amd    
+### mla             (MLA)   — 43 chains
+ 493  cpu         mla         none        na          native      aten_cpu   
+ 494  cpu         mla         stock       inductor    native      inductor_cpp
+ 495  cpu         mla         stock       eager       native      aten_cpu   
+ 496  cpu         mla         trace_once  inductor    native      inductor_cpp
+ 497  cpu         mla         trace_once  eager       native      aten_cpu   
+ 498  cpu         mla         vllm        inductor    native      inductor_cpp
+ 499  cpu         mla         vllm        eager       native      aten_cpu   
+ 500  tpu         mla         stock       openxla     native      xla        
+ 501  cuda        mla         none        na          custom      nvcc       
+ 502  cuda        mla         stock       inductor    custom      nvcc       
+ 503  cuda        mla         stock       eager       custom      nvcc       
+ 504  cuda        mla         trace_once  inductor    custom      nvcc       
+ 505  cuda        mla         trace_once  eager       custom      nvcc       
+ 506  cuda        mla         vllm        inductor    custom      nvcc       
+ 507  cuda        mla         vllm        eager       custom      nvcc       
+ 508  cuda        mla         none        na          triton      triton_ptx 
+ 509  cuda        mla         stock       inductor    triton      triton_ptx 
+ 510  cuda        mla         stock       eager       triton      triton_ptx 
+ 511  cuda        mla         trace_once  inductor    triton      triton_ptx 
+ 512  cuda        mla         trace_once  eager       triton      triton_ptx 
+ 513  cuda        mla         vllm        inductor    triton      triton_ptx 
+ 514  cuda        mla         vllm        eager       triton      triton_ptx 
+ 515  rocm        mla         none        na          triton      triton_hip 
+ 516  rocm        mla         stock       inductor    triton      triton_hip 
+ 517  rocm        mla         stock       eager       triton      triton_hip 
+ 518  rocm        mla         trace_once  inductor    triton      triton_hip 
+ 519  rocm        mla         trace_once  eager       triton      triton_hip 
+ 520  rocm        mla         vllm        inductor    triton      triton_hip 
+ 521  rocm        mla         vllm        eager       triton      triton_hip 
+ 522  cuda        mla         none        na          external    vendor     
+ 523  cuda        mla         stock       inductor    external    vendor     
+ 524  cuda        mla         stock       eager       external    vendor     
+ 525  cuda        mla         trace_once  inductor    external    vendor     
+ 526  cuda        mla         trace_once  eager       external    vendor     
+ 527  cuda        mla         vllm        inductor    external    vendor     
+ 528  cuda        mla         vllm        eager       external    vendor     
+ 529  rocm        mla         none        na          external    aiter      
+ 530  rocm        mla         stock       inductor    external    aiter      
+ 531  rocm        mla         stock       eager       external    aiter      
+ 532  rocm        mla         trace_once  inductor    external    aiter      
+ 533  rocm        mla         trace_once  eager       external    aiter      
+ 534  rocm        mla         vllm        inductor    external    aiter      
+ 535  rocm        mla         vllm        eager       external    aiter      
 
-### embedding       (VocabParallelEmbedding)   — 11 chains
- 247  embedding      eager      cuda   native    aten_cuda        nvidia 
- 248  embedding      compile    cuda   native    inductor_triton  nvidia 
- 249  embedding      cudagraph  cuda   native    inductor_triton  nvidia 
- 250  embedding      eager      rocm   native    aten_rocm        amd    
- 251  embedding      compile    rocm   native    inductor_triton  amd    
- 252  embedding      cudagraph  rocm   native    inductor_triton  amd    
- 253  embedding      eager      cpu    native    aten_cpu         cpu    
- 254  embedding      compile    cpu    native    inductor_cpp     cpu    
- 255  embedding      eager      xpu    native    aten_xpu         intel  
- 256  embedding      compile    xpu    native    inductor_triton  intel  
- 257  embedding      compile    tpu    native    xla              tpu    
+### embedding       (VocabParallelEmbedding)   — 29 chains
+ 536  cuda        embedding   none        na          native      aten_cuda  
+ 537  cuda        embedding   stock       inductor    native      inductor_triton
+ 538  cuda        embedding   stock       eager       native      aten_cuda  
+ 539  cuda        embedding   trace_once  inductor    native      inductor_triton
+ 540  cuda        embedding   trace_once  eager       native      aten_cuda  
+ 541  cuda        embedding   vllm        inductor    native      inductor_triton
+ 542  cuda        embedding   vllm        eager       native      aten_cuda  
+ 543  rocm        embedding   none        na          native      aten_rocm  
+ 544  rocm        embedding   stock       inductor    native      inductor_triton
+ 545  rocm        embedding   stock       eager       native      aten_rocm  
+ 546  rocm        embedding   trace_once  inductor    native      inductor_triton
+ 547  rocm        embedding   trace_once  eager       native      aten_rocm  
+ 548  rocm        embedding   vllm        inductor    native      inductor_triton
+ 549  rocm        embedding   vllm        eager       native      aten_rocm  
+ 550  cpu         embedding   none        na          native      aten_cpu   
+ 551  cpu         embedding   stock       inductor    native      inductor_cpp
+ 552  cpu         embedding   stock       eager       native      aten_cpu   
+ 553  cpu         embedding   trace_once  inductor    native      inductor_cpp
+ 554  cpu         embedding   trace_once  eager       native      aten_cpu   
+ 555  cpu         embedding   vllm        inductor    native      inductor_cpp
+ 556  cpu         embedding   vllm        eager       native      aten_cpu   
+ 557  xpu         embedding   none        na          native      aten_xpu   
+ 558  xpu         embedding   stock       inductor    native      inductor_triton
+ 559  xpu         embedding   stock       eager       native      aten_xpu   
+ 560  xpu         embedding   trace_once  inductor    native      inductor_triton
+ 561  xpu         embedding   trace_once  eager       native      aten_xpu   
+ 562  xpu         embedding   vllm        inductor    native      inductor_triton
+ 563  xpu         embedding   vllm        eager       native      aten_xpu   
+ 564  tpu         embedding   stock       openxla     native      xla        
 
-### linear          (Linear / GEMM)   — 29 chains
- 258  linear         eager      cuda   native    aten_cuda        nvidia 
- 259  linear         compile    cuda   native    inductor_triton  nvidia 
- 260  linear         cudagraph  cuda   native    inductor_triton  nvidia 
- 261  linear         eager      rocm   native    aten_rocm        amd    
- 262  linear         compile    rocm   native    inductor_triton  amd    
- 263  linear         cudagraph  rocm   native    inductor_triton  amd    
- 264  linear         eager      cpu    native    aten_cpu         cpu    
- 265  linear         compile    cpu    native    inductor_cpp     cpu    
- 266  linear         eager      xpu    native    aten_xpu         intel  
- 267  linear         compile    xpu    native    inductor_triton  intel  
- 268  linear         compile    tpu    native    xla              tpu    
- 269  linear         eager      cuda   custom    nvcc             nvidia 
- 270  linear         compile    cuda   custom    nvcc             nvidia 
- 271  linear         cudagraph  cuda   custom    nvcc             nvidia 
- 272  linear         eager      cuda   triton    triton_ptx       nvidia 
- 273  linear         compile    cuda   triton    triton_ptx       nvidia 
- 274  linear         cudagraph  cuda   triton    triton_ptx       nvidia 
- 275  linear         eager      rocm   triton    triton_hip       amd    
- 276  linear         compile    rocm   triton    triton_hip       amd    
- 277  linear         cudagraph  rocm   triton    triton_hip       amd    
- 278  linear         eager      xpu    triton    triton_xpu       intel  
- 279  linear         compile    xpu    triton    triton_xpu       intel  
- 280  linear         eager      cuda   external  vendor           nvidia 
- 281  linear         compile    cuda   external  vendor           nvidia 
- 282  linear         cudagraph  cuda   external  vendor           nvidia 
- 283  linear         eager      cpu    external  onednn           cpu    
- 284  linear         compile    cpu    external  onednn           cpu    
- 285  linear         eager      xpu    external  onednn           intel  
- 286  linear         compile    xpu    external  onednn           intel  
+### linear          (Linear / GEMM)   — 78 chains
+ 565  cuda        linear      none        na          native      aten_cuda  
+ 566  cuda        linear      stock       inductor    native      inductor_triton
+ 567  cuda        linear      stock       eager       native      aten_cuda  
+ 568  cuda        linear      trace_once  inductor    native      inductor_triton
+ 569  cuda        linear      trace_once  eager       native      aten_cuda  
+ 570  cuda        linear      vllm        inductor    native      inductor_triton
+ 571  cuda        linear      vllm        eager       native      aten_cuda  
+ 572  rocm        linear      none        na          native      aten_rocm  
+ 573  rocm        linear      stock       inductor    native      inductor_triton
+ 574  rocm        linear      stock       eager       native      aten_rocm  
+ 575  rocm        linear      trace_once  inductor    native      inductor_triton
+ 576  rocm        linear      trace_once  eager       native      aten_rocm  
+ 577  rocm        linear      vllm        inductor    native      inductor_triton
+ 578  rocm        linear      vllm        eager       native      aten_rocm  
+ 579  cpu         linear      none        na          native      aten_cpu   
+ 580  cpu         linear      stock       inductor    native      inductor_cpp
+ 581  cpu         linear      stock       eager       native      aten_cpu   
+ 582  cpu         linear      trace_once  inductor    native      inductor_cpp
+ 583  cpu         linear      trace_once  eager       native      aten_cpu   
+ 584  cpu         linear      vllm        inductor    native      inductor_cpp
+ 585  cpu         linear      vllm        eager       native      aten_cpu   
+ 586  xpu         linear      none        na          native      aten_xpu   
+ 587  xpu         linear      stock       inductor    native      inductor_triton
+ 588  xpu         linear      stock       eager       native      aten_xpu   
+ 589  xpu         linear      trace_once  inductor    native      inductor_triton
+ 590  xpu         linear      trace_once  eager       native      aten_xpu   
+ 591  xpu         linear      vllm        inductor    native      inductor_triton
+ 592  xpu         linear      vllm        eager       native      aten_xpu   
+ 593  tpu         linear      stock       openxla     native      xla        
+ 594  cuda        linear      none        na          custom      nvcc       
+ 595  cuda        linear      stock       inductor    custom      nvcc       
+ 596  cuda        linear      stock       eager       custom      nvcc       
+ 597  cuda        linear      trace_once  inductor    custom      nvcc       
+ 598  cuda        linear      trace_once  eager       custom      nvcc       
+ 599  cuda        linear      vllm        inductor    custom      nvcc       
+ 600  cuda        linear      vllm        eager       custom      nvcc       
+ 601  cuda        linear      none        na          triton      triton_ptx 
+ 602  cuda        linear      stock       inductor    triton      triton_ptx 
+ 603  cuda        linear      stock       eager       triton      triton_ptx 
+ 604  cuda        linear      trace_once  inductor    triton      triton_ptx 
+ 605  cuda        linear      trace_once  eager       triton      triton_ptx 
+ 606  cuda        linear      vllm        inductor    triton      triton_ptx 
+ 607  cuda        linear      vllm        eager       triton      triton_ptx 
+ 608  rocm        linear      none        na          triton      triton_hip 
+ 609  rocm        linear      stock       inductor    triton      triton_hip 
+ 610  rocm        linear      stock       eager       triton      triton_hip 
+ 611  rocm        linear      trace_once  inductor    triton      triton_hip 
+ 612  rocm        linear      trace_once  eager       triton      triton_hip 
+ 613  rocm        linear      vllm        inductor    triton      triton_hip 
+ 614  rocm        linear      vllm        eager       triton      triton_hip 
+ 615  xpu         linear      none        na          triton      triton_xpu 
+ 616  xpu         linear      stock       inductor    triton      triton_xpu 
+ 617  xpu         linear      stock       eager       triton      triton_xpu 
+ 618  xpu         linear      trace_once  inductor    triton      triton_xpu 
+ 619  xpu         linear      trace_once  eager       triton      triton_xpu 
+ 620  xpu         linear      vllm        inductor    triton      triton_xpu 
+ 621  xpu         linear      vllm        eager       triton      triton_xpu 
+ 622  cuda        linear      none        na          external    vendor     
+ 623  cuda        linear      stock       inductor    external    vendor     
+ 624  cuda        linear      stock       eager       external    vendor     
+ 625  cuda        linear      trace_once  inductor    external    vendor     
+ 626  cuda        linear      trace_once  eager       external    vendor     
+ 627  cuda        linear      vllm        inductor    external    vendor     
+ 628  cuda        linear      vllm        eager       external    vendor     
+ 629  cpu         linear      none        na          external    onednn     
+ 630  cpu         linear      stock       inductor    external    onednn     
+ 631  cpu         linear      stock       eager       external    onednn     
+ 632  cpu         linear      trace_once  inductor    external    onednn     
+ 633  cpu         linear      trace_once  eager       external    onednn     
+ 634  cpu         linear      vllm        inductor    external    onednn     
+ 635  cpu         linear      vllm        eager       external    onednn     
+ 636  xpu         linear      none        na          external    onednn     
+ 637  xpu         linear      stock       inductor    external    onednn     
+ 638  xpu         linear      stock       eager       external    onednn     
+ 639  xpu         linear      trace_once  inductor    external    onednn     
+ 640  xpu         linear      trace_once  eager       external    onednn     
+ 641  xpu         linear      vllm        inductor    external    onednn     
+ 642  xpu         linear      vllm        eager       external    onednn     
 
-### scaled_mm       (cutlass_scaled_mm)   — 18 chains
- 287  scaled_mm      eager      cuda   native    aten_cuda        nvidia 
- 288  scaled_mm      compile    cuda   native    inductor_triton  nvidia 
- 289  scaled_mm      cudagraph  cuda   native    inductor_triton  nvidia 
- 290  scaled_mm      eager      rocm   native    aten_rocm        amd    
- 291  scaled_mm      compile    rocm   native    inductor_triton  amd    
- 292  scaled_mm      cudagraph  rocm   native    inductor_triton  amd    
- 293  scaled_mm      eager      cpu    native    aten_cpu         cpu    
- 294  scaled_mm      compile    cpu    native    inductor_cpp     cpu    
- 295  scaled_mm      eager      cuda   custom    nvcc             nvidia 
- 296  scaled_mm      compile    cuda   custom    nvcc             nvidia 
- 297  scaled_mm      cudagraph  cuda   custom    nvcc             nvidia 
- 298  scaled_mm      eager      cuda   external  vendor           nvidia 
- 299  scaled_mm      compile    cuda   external  vendor           nvidia 
- 300  scaled_mm      cudagraph  cuda   external  vendor           nvidia 
- 301  scaled_mm      eager      cpu    external  onednn           cpu    
- 302  scaled_mm      compile    cpu    external  onednn           cpu    
- 303  scaled_mm      eager      xpu    external  onednn           intel  
- 304  scaled_mm      compile    xpu    external  onednn           intel  
+### scaled_mm       (cutlass_scaled_mm)   — 49 chains
+ 643  cuda        scaled_mm   none        na          native      aten_cuda  
+ 644  cuda        scaled_mm   stock       inductor    native      inductor_triton
+ 645  cuda        scaled_mm   stock       eager       native      aten_cuda  
+ 646  cuda        scaled_mm   trace_once  inductor    native      inductor_triton
+ 647  cuda        scaled_mm   trace_once  eager       native      aten_cuda  
+ 648  cuda        scaled_mm   vllm        inductor    native      inductor_triton
+ 649  cuda        scaled_mm   vllm        eager       native      aten_cuda  
+ 650  rocm        scaled_mm   none        na          native      aten_rocm  
+ 651  rocm        scaled_mm   stock       inductor    native      inductor_triton
+ 652  rocm        scaled_mm   stock       eager       native      aten_rocm  
+ 653  rocm        scaled_mm   trace_once  inductor    native      inductor_triton
+ 654  rocm        scaled_mm   trace_once  eager       native      aten_rocm  
+ 655  rocm        scaled_mm   vllm        inductor    native      inductor_triton
+ 656  rocm        scaled_mm   vllm        eager       native      aten_rocm  
+ 657  cpu         scaled_mm   none        na          native      aten_cpu   
+ 658  cpu         scaled_mm   stock       inductor    native      inductor_cpp
+ 659  cpu         scaled_mm   stock       eager       native      aten_cpu   
+ 660  cpu         scaled_mm   trace_once  inductor    native      inductor_cpp
+ 661  cpu         scaled_mm   trace_once  eager       native      aten_cpu   
+ 662  cpu         scaled_mm   vllm        inductor    native      inductor_cpp
+ 663  cpu         scaled_mm   vllm        eager       native      aten_cpu   
+ 664  cuda        scaled_mm   none        na          custom      nvcc       
+ 665  cuda        scaled_mm   stock       inductor    custom      nvcc       
+ 666  cuda        scaled_mm   stock       eager       custom      nvcc       
+ 667  cuda        scaled_mm   trace_once  inductor    custom      nvcc       
+ 668  cuda        scaled_mm   trace_once  eager       custom      nvcc       
+ 669  cuda        scaled_mm   vllm        inductor    custom      nvcc       
+ 670  cuda        scaled_mm   vllm        eager       custom      nvcc       
+ 671  cuda        scaled_mm   none        na          external    vendor     
+ 672  cuda        scaled_mm   stock       inductor    external    vendor     
+ 673  cuda        scaled_mm   stock       eager       external    vendor     
+ 674  cuda        scaled_mm   trace_once  inductor    external    vendor     
+ 675  cuda        scaled_mm   trace_once  eager       external    vendor     
+ 676  cuda        scaled_mm   vllm        inductor    external    vendor     
+ 677  cuda        scaled_mm   vllm        eager       external    vendor     
+ 678  cpu         scaled_mm   none        na          external    onednn     
+ 679  cpu         scaled_mm   stock       inductor    external    onednn     
+ 680  cpu         scaled_mm   stock       eager       external    onednn     
+ 681  cpu         scaled_mm   trace_once  inductor    external    onednn     
+ 682  cpu         scaled_mm   trace_once  eager       external    onednn     
+ 683  cpu         scaled_mm   vllm        inductor    external    onednn     
+ 684  cpu         scaled_mm   vllm        eager       external    onednn     
+ 685  xpu         scaled_mm   none        na          external    onednn     
+ 686  xpu         scaled_mm   stock       inductor    external    onednn     
+ 687  xpu         scaled_mm   stock       eager       external    onednn     
+ 688  xpu         scaled_mm   trace_once  inductor    external    onednn     
+ 689  xpu         scaled_mm   trace_once  eager       external    onednn     
+ 690  xpu         scaled_mm   vllm        inductor    external    onednn     
+ 691  xpu         scaled_mm   vllm        eager       external    onednn     
 
-### fp8_quant       (scaled_fp8_quant)   — 25 chains
- 305  fp8_quant      eager      cuda   native    aten_cuda        nvidia 
- 306  fp8_quant      compile    cuda   native    inductor_triton  nvidia 
- 307  fp8_quant      cudagraph  cuda   native    inductor_triton  nvidia 
- 308  fp8_quant      eager      rocm   native    aten_rocm        amd    
- 309  fp8_quant      compile    rocm   native    inductor_triton  amd    
- 310  fp8_quant      cudagraph  rocm   native    inductor_triton  amd    
- 311  fp8_quant      eager      cpu    native    aten_cpu         cpu    
- 312  fp8_quant      compile    cpu    native    inductor_cpp     cpu    
- 313  fp8_quant      eager      xpu    native    aten_xpu         intel  
- 314  fp8_quant      compile    xpu    native    inductor_triton  intel  
- 315  fp8_quant      compile    tpu    native    xla              tpu    
- 316  fp8_quant      eager      cuda   custom    nvcc             nvidia 
- 317  fp8_quant      compile    cuda   custom    nvcc             nvidia 
- 318  fp8_quant      cudagraph  cuda   custom    nvcc             nvidia 
- 319  fp8_quant      eager      rocm   custom    hip              amd    
- 320  fp8_quant      compile    rocm   custom    hip              amd    
- 321  fp8_quant      cudagraph  rocm   custom    hip              amd    
- 322  fp8_quant      eager      cuda   triton    triton_ptx       nvidia 
- 323  fp8_quant      compile    cuda   triton    triton_ptx       nvidia 
- 324  fp8_quant      cudagraph  cuda   triton    triton_ptx       nvidia 
- 325  fp8_quant      eager      rocm   triton    triton_hip       amd    
- 326  fp8_quant      compile    rocm   triton    triton_hip       amd    
- 327  fp8_quant      cudagraph  rocm   triton    triton_hip       amd    
- 328  fp8_quant      eager      xpu    triton    triton_xpu       intel  
- 329  fp8_quant      compile    xpu    triton    triton_xpu       intel  
+### fp8_quant       (scaled_fp8_quant)   — 64 chains
+ 692  cuda        fp8_quant   none        na          native      aten_cuda  
+ 693  cuda        fp8_quant   stock       inductor    native      inductor_triton
+ 694  cuda        fp8_quant   stock       eager       native      aten_cuda  
+ 695  cuda        fp8_quant   trace_once  inductor    native      inductor_triton
+ 696  cuda        fp8_quant   trace_once  eager       native      aten_cuda  
+ 697  cuda        fp8_quant   vllm        inductor    native      inductor_triton
+ 698  cuda        fp8_quant   vllm        eager       native      aten_cuda  
+ 699  rocm        fp8_quant   none        na          native      aten_rocm  
+ 700  rocm        fp8_quant   stock       inductor    native      inductor_triton
+ 701  rocm        fp8_quant   stock       eager       native      aten_rocm  
+ 702  rocm        fp8_quant   trace_once  inductor    native      inductor_triton
+ 703  rocm        fp8_quant   trace_once  eager       native      aten_rocm  
+ 704  rocm        fp8_quant   vllm        inductor    native      inductor_triton
+ 705  rocm        fp8_quant   vllm        eager       native      aten_rocm  
+ 706  cpu         fp8_quant   none        na          native      aten_cpu   
+ 707  cpu         fp8_quant   stock       inductor    native      inductor_cpp
+ 708  cpu         fp8_quant   stock       eager       native      aten_cpu   
+ 709  cpu         fp8_quant   trace_once  inductor    native      inductor_cpp
+ 710  cpu         fp8_quant   trace_once  eager       native      aten_cpu   
+ 711  cpu         fp8_quant   vllm        inductor    native      inductor_cpp
+ 712  cpu         fp8_quant   vllm        eager       native      aten_cpu   
+ 713  xpu         fp8_quant   none        na          native      aten_xpu   
+ 714  xpu         fp8_quant   stock       inductor    native      inductor_triton
+ 715  xpu         fp8_quant   stock       eager       native      aten_xpu   
+ 716  xpu         fp8_quant   trace_once  inductor    native      inductor_triton
+ 717  xpu         fp8_quant   trace_once  eager       native      aten_xpu   
+ 718  xpu         fp8_quant   vllm        inductor    native      inductor_triton
+ 719  xpu         fp8_quant   vllm        eager       native      aten_xpu   
+ 720  tpu         fp8_quant   stock       openxla     native      xla        
+ 721  cuda        fp8_quant   none        na          custom      nvcc       
+ 722  cuda        fp8_quant   stock       inductor    custom      nvcc       
+ 723  cuda        fp8_quant   stock       eager       custom      nvcc       
+ 724  cuda        fp8_quant   trace_once  inductor    custom      nvcc       
+ 725  cuda        fp8_quant   trace_once  eager       custom      nvcc       
+ 726  cuda        fp8_quant   vllm        inductor    custom      nvcc       
+ 727  cuda        fp8_quant   vllm        eager       custom      nvcc       
+ 728  rocm        fp8_quant   none        na          custom      hip        
+ 729  rocm        fp8_quant   stock       inductor    custom      hip        
+ 730  rocm        fp8_quant   stock       eager       custom      hip        
+ 731  rocm        fp8_quant   trace_once  inductor    custom      hip        
+ 732  rocm        fp8_quant   trace_once  eager       custom      hip        
+ 733  rocm        fp8_quant   vllm        inductor    custom      hip        
+ 734  rocm        fp8_quant   vllm        eager       custom      hip        
+ 735  cuda        fp8_quant   none        na          triton      triton_ptx 
+ 736  cuda        fp8_quant   stock       inductor    triton      triton_ptx 
+ 737  cuda        fp8_quant   stock       eager       triton      triton_ptx 
+ 738  cuda        fp8_quant   trace_once  inductor    triton      triton_ptx 
+ 739  cuda        fp8_quant   trace_once  eager       triton      triton_ptx 
+ 740  cuda        fp8_quant   vllm        inductor    triton      triton_ptx 
+ 741  cuda        fp8_quant   vllm        eager       triton      triton_ptx 
+ 742  rocm        fp8_quant   none        na          triton      triton_hip 
+ 743  rocm        fp8_quant   stock       inductor    triton      triton_hip 
+ 744  rocm        fp8_quant   stock       eager       triton      triton_hip 
+ 745  rocm        fp8_quant   trace_once  inductor    triton      triton_hip 
+ 746  rocm        fp8_quant   trace_once  eager       triton      triton_hip 
+ 747  rocm        fp8_quant   vllm        inductor    triton      triton_hip 
+ 748  rocm        fp8_quant   vllm        eager       triton      triton_hip 
+ 749  xpu         fp8_quant   none        na          triton      triton_xpu 
+ 750  xpu         fp8_quant   stock       inductor    triton      triton_xpu 
+ 751  xpu         fp8_quant   stock       eager       triton      triton_xpu 
+ 752  xpu         fp8_quant   trace_once  inductor    triton      triton_xpu 
+ 753  xpu         fp8_quant   trace_once  eager       triton      triton_xpu 
+ 754  xpu         fp8_quant   vllm        inductor    triton      triton_xpu 
+ 755  xpu         fp8_quant   vllm        eager       triton      triton_xpu 
 
-### int8_quant      (scaled_int8_quant)   — 25 chains
- 330  int8_quant     eager      cuda   native    aten_cuda        nvidia 
- 331  int8_quant     compile    cuda   native    inductor_triton  nvidia 
- 332  int8_quant     cudagraph  cuda   native    inductor_triton  nvidia 
- 333  int8_quant     eager      rocm   native    aten_rocm        amd    
- 334  int8_quant     compile    rocm   native    inductor_triton  amd    
- 335  int8_quant     cudagraph  rocm   native    inductor_triton  amd    
- 336  int8_quant     eager      cpu    native    aten_cpu         cpu    
- 337  int8_quant     compile    cpu    native    inductor_cpp     cpu    
- 338  int8_quant     eager      xpu    native    aten_xpu         intel  
- 339  int8_quant     compile    xpu    native    inductor_triton  intel  
- 340  int8_quant     compile    tpu    native    xla              tpu    
- 341  int8_quant     eager      cuda   custom    nvcc             nvidia 
- 342  int8_quant     compile    cuda   custom    nvcc             nvidia 
- 343  int8_quant     cudagraph  cuda   custom    nvcc             nvidia 
- 344  int8_quant     eager      rocm   custom    hip              amd    
- 345  int8_quant     compile    rocm   custom    hip              amd    
- 346  int8_quant     cudagraph  rocm   custom    hip              amd    
- 347  int8_quant     eager      cuda   triton    triton_ptx       nvidia 
- 348  int8_quant     compile    cuda   triton    triton_ptx       nvidia 
- 349  int8_quant     cudagraph  cuda   triton    triton_ptx       nvidia 
- 350  int8_quant     eager      rocm   triton    triton_hip       amd    
- 351  int8_quant     compile    rocm   triton    triton_hip       amd    
- 352  int8_quant     cudagraph  rocm   triton    triton_hip       amd    
- 353  int8_quant     eager      xpu    triton    triton_xpu       intel  
- 354  int8_quant     compile    xpu    triton    triton_xpu       intel  
+### int8_quant      (scaled_int8_quant)   — 64 chains
+ 756  cuda        int8_quant  none        na          native      aten_cuda  
+ 757  cuda        int8_quant  stock       inductor    native      inductor_triton
+ 758  cuda        int8_quant  stock       eager       native      aten_cuda  
+ 759  cuda        int8_quant  trace_once  inductor    native      inductor_triton
+ 760  cuda        int8_quant  trace_once  eager       native      aten_cuda  
+ 761  cuda        int8_quant  vllm        inductor    native      inductor_triton
+ 762  cuda        int8_quant  vllm        eager       native      aten_cuda  
+ 763  rocm        int8_quant  none        na          native      aten_rocm  
+ 764  rocm        int8_quant  stock       inductor    native      inductor_triton
+ 765  rocm        int8_quant  stock       eager       native      aten_rocm  
+ 766  rocm        int8_quant  trace_once  inductor    native      inductor_triton
+ 767  rocm        int8_quant  trace_once  eager       native      aten_rocm  
+ 768  rocm        int8_quant  vllm        inductor    native      inductor_triton
+ 769  rocm        int8_quant  vllm        eager       native      aten_rocm  
+ 770  cpu         int8_quant  none        na          native      aten_cpu   
+ 771  cpu         int8_quant  stock       inductor    native      inductor_cpp
+ 772  cpu         int8_quant  stock       eager       native      aten_cpu   
+ 773  cpu         int8_quant  trace_once  inductor    native      inductor_cpp
+ 774  cpu         int8_quant  trace_once  eager       native      aten_cpu   
+ 775  cpu         int8_quant  vllm        inductor    native      inductor_cpp
+ 776  cpu         int8_quant  vllm        eager       native      aten_cpu   
+ 777  xpu         int8_quant  none        na          native      aten_xpu   
+ 778  xpu         int8_quant  stock       inductor    native      inductor_triton
+ 779  xpu         int8_quant  stock       eager       native      aten_xpu   
+ 780  xpu         int8_quant  trace_once  inductor    native      inductor_triton
+ 781  xpu         int8_quant  trace_once  eager       native      aten_xpu   
+ 782  xpu         int8_quant  vllm        inductor    native      inductor_triton
+ 783  xpu         int8_quant  vllm        eager       native      aten_xpu   
+ 784  tpu         int8_quant  stock       openxla     native      xla        
+ 785  cuda        int8_quant  none        na          custom      nvcc       
+ 786  cuda        int8_quant  stock       inductor    custom      nvcc       
+ 787  cuda        int8_quant  stock       eager       custom      nvcc       
+ 788  cuda        int8_quant  trace_once  inductor    custom      nvcc       
+ 789  cuda        int8_quant  trace_once  eager       custom      nvcc       
+ 790  cuda        int8_quant  vllm        inductor    custom      nvcc       
+ 791  cuda        int8_quant  vllm        eager       custom      nvcc       
+ 792  rocm        int8_quant  none        na          custom      hip        
+ 793  rocm        int8_quant  stock       inductor    custom      hip        
+ 794  rocm        int8_quant  stock       eager       custom      hip        
+ 795  rocm        int8_quant  trace_once  inductor    custom      hip        
+ 796  rocm        int8_quant  trace_once  eager       custom      hip        
+ 797  rocm        int8_quant  vllm        inductor    custom      hip        
+ 798  rocm        int8_quant  vllm        eager       custom      hip        
+ 799  cuda        int8_quant  none        na          triton      triton_ptx 
+ 800  cuda        int8_quant  stock       inductor    triton      triton_ptx 
+ 801  cuda        int8_quant  stock       eager       triton      triton_ptx 
+ 802  cuda        int8_quant  trace_once  inductor    triton      triton_ptx 
+ 803  cuda        int8_quant  trace_once  eager       triton      triton_ptx 
+ 804  cuda        int8_quant  vllm        inductor    triton      triton_ptx 
+ 805  cuda        int8_quant  vllm        eager       triton      triton_ptx 
+ 806  rocm        int8_quant  none        na          triton      triton_hip 
+ 807  rocm        int8_quant  stock       inductor    triton      triton_hip 
+ 808  rocm        int8_quant  stock       eager       triton      triton_hip 
+ 809  rocm        int8_quant  trace_once  inductor    triton      triton_hip 
+ 810  rocm        int8_quant  trace_once  eager       triton      triton_hip 
+ 811  rocm        int8_quant  vllm        inductor    triton      triton_hip 
+ 812  rocm        int8_quant  vllm        eager       triton      triton_hip 
+ 813  xpu         int8_quant  none        na          triton      triton_xpu 
+ 814  xpu         int8_quant  stock       inductor    triton      triton_xpu 
+ 815  xpu         int8_quant  stock       eager       triton      triton_xpu 
+ 816  xpu         int8_quant  trace_once  inductor    triton      triton_xpu 
+ 817  xpu         int8_quant  trace_once  eager       triton      triton_xpu 
+ 818  xpu         int8_quant  vllm        inductor    triton      triton_xpu 
+ 819  xpu         int8_quant  vllm        eager       triton      triton_xpu 
 
-### moe             (FusedMoE)   — 29 chains
- 355  moe            eager      cuda   native    aten_cuda        nvidia 
- 356  moe            compile    cuda   native    inductor_triton  nvidia 
- 357  moe            cudagraph  cuda   native    inductor_triton  nvidia 
- 358  moe            eager      rocm   native    aten_rocm        amd    
- 359  moe            compile    rocm   native    inductor_triton  amd    
- 360  moe            cudagraph  rocm   native    inductor_triton  amd    
- 361  moe            eager      cpu    native    aten_cpu         cpu    
- 362  moe            compile    cpu    native    inductor_cpp     cpu    
- 363  moe            eager      xpu    native    aten_xpu         intel  
- 364  moe            compile    xpu    native    inductor_triton  intel  
- 365  moe            compile    tpu    native    xla              tpu    
- 366  moe            eager      cuda   custom    nvcc             nvidia 
- 367  moe            compile    cuda   custom    nvcc             nvidia 
- 368  moe            cudagraph  cuda   custom    nvcc             nvidia 
- 369  moe            eager      cuda   triton    triton_ptx       nvidia 
- 370  moe            compile    cuda   triton    triton_ptx       nvidia 
- 371  moe            cudagraph  cuda   triton    triton_ptx       nvidia 
- 372  moe            eager      rocm   triton    triton_hip       amd    
- 373  moe            compile    rocm   triton    triton_hip       amd    
- 374  moe            cudagraph  rocm   triton    triton_hip       amd    
- 375  moe            eager      xpu    triton    triton_xpu       intel  
- 376  moe            compile    xpu    triton    triton_xpu       intel  
- 377  moe            eager      cuda   external  vendor           nvidia 
- 378  moe            compile    cuda   external  vendor           nvidia 
- 379  moe            cudagraph  cuda   external  vendor           nvidia 
- 380  moe            eager      rocm   external  aiter            amd    
- 381  moe            compile    rocm   external  aiter            amd    
- 382  moe            cudagraph  rocm   external  aiter            amd    
- 383  moe            compile    tpu    external  xla              tpu    
+### moe             (FusedMoE)   — 72 chains
+ 820  cuda        moe         none        na          native      aten_cuda  
+ 821  cuda        moe         stock       inductor    native      inductor_triton
+ 822  cuda        moe         stock       eager       native      aten_cuda  
+ 823  cuda        moe         trace_once  inductor    native      inductor_triton
+ 824  cuda        moe         trace_once  eager       native      aten_cuda  
+ 825  cuda        moe         vllm        inductor    native      inductor_triton
+ 826  cuda        moe         vllm        eager       native      aten_cuda  
+ 827  rocm        moe         none        na          native      aten_rocm  
+ 828  rocm        moe         stock       inductor    native      inductor_triton
+ 829  rocm        moe         stock       eager       native      aten_rocm  
+ 830  rocm        moe         trace_once  inductor    native      inductor_triton
+ 831  rocm        moe         trace_once  eager       native      aten_rocm  
+ 832  rocm        moe         vllm        inductor    native      inductor_triton
+ 833  rocm        moe         vllm        eager       native      aten_rocm  
+ 834  cpu         moe         none        na          native      aten_cpu   
+ 835  cpu         moe         stock       inductor    native      inductor_cpp
+ 836  cpu         moe         stock       eager       native      aten_cpu   
+ 837  cpu         moe         trace_once  inductor    native      inductor_cpp
+ 838  cpu         moe         trace_once  eager       native      aten_cpu   
+ 839  cpu         moe         vllm        inductor    native      inductor_cpp
+ 840  cpu         moe         vllm        eager       native      aten_cpu   
+ 841  xpu         moe         none        na          native      aten_xpu   
+ 842  xpu         moe         stock       inductor    native      inductor_triton
+ 843  xpu         moe         stock       eager       native      aten_xpu   
+ 844  xpu         moe         trace_once  inductor    native      inductor_triton
+ 845  xpu         moe         trace_once  eager       native      aten_xpu   
+ 846  xpu         moe         vllm        inductor    native      inductor_triton
+ 847  xpu         moe         vllm        eager       native      aten_xpu   
+ 848  tpu         moe         stock       openxla     native      xla        
+ 849  cuda        moe         none        na          custom      nvcc       
+ 850  cuda        moe         stock       inductor    custom      nvcc       
+ 851  cuda        moe         stock       eager       custom      nvcc       
+ 852  cuda        moe         trace_once  inductor    custom      nvcc       
+ 853  cuda        moe         trace_once  eager       custom      nvcc       
+ 854  cuda        moe         vllm        inductor    custom      nvcc       
+ 855  cuda        moe         vllm        eager       custom      nvcc       
+ 856  cuda        moe         none        na          triton      triton_ptx 
+ 857  cuda        moe         stock       inductor    triton      triton_ptx 
+ 858  cuda        moe         stock       eager       triton      triton_ptx 
+ 859  cuda        moe         trace_once  inductor    triton      triton_ptx 
+ 860  cuda        moe         trace_once  eager       triton      triton_ptx 
+ 861  cuda        moe         vllm        inductor    triton      triton_ptx 
+ 862  cuda        moe         vllm        eager       triton      triton_ptx 
+ 863  rocm        moe         none        na          triton      triton_hip 
+ 864  rocm        moe         stock       inductor    triton      triton_hip 
+ 865  rocm        moe         stock       eager       triton      triton_hip 
+ 866  rocm        moe         trace_once  inductor    triton      triton_hip 
+ 867  rocm        moe         trace_once  eager       triton      triton_hip 
+ 868  rocm        moe         vllm        inductor    triton      triton_hip 
+ 869  rocm        moe         vllm        eager       triton      triton_hip 
+ 870  xpu         moe         none        na          triton      triton_xpu 
+ 871  xpu         moe         stock       inductor    triton      triton_xpu 
+ 872  xpu         moe         stock       eager       triton      triton_xpu 
+ 873  xpu         moe         trace_once  inductor    triton      triton_xpu 
+ 874  xpu         moe         trace_once  eager       triton      triton_xpu 
+ 875  xpu         moe         vllm        inductor    triton      triton_xpu 
+ 876  xpu         moe         vllm        eager       triton      triton_xpu 
+ 877  cuda        moe         none        na          external    vendor     
+ 878  cuda        moe         stock       inductor    external    vendor     
+ 879  cuda        moe         stock       eager       external    vendor     
+ 880  cuda        moe         trace_once  inductor    external    vendor     
+ 881  cuda        moe         trace_once  eager       external    vendor     
+ 882  cuda        moe         vllm        inductor    external    vendor     
+ 883  cuda        moe         vllm        eager       external    vendor     
+ 884  rocm        moe         none        na          external    aiter      
+ 885  rocm        moe         stock       inductor    external    aiter      
+ 886  rocm        moe         stock       eager       external    aiter      
+ 887  rocm        moe         trace_once  inductor    external    aiter      
+ 888  rocm        moe         trace_once  eager       external    aiter      
+ 889  rocm        moe         vllm        inductor    external    aiter      
+ 890  rocm        moe         vllm        eager       external    aiter      
+ 891  tpu         moe         stock       openxla     external    xla        
 
-### reshape_cache   (reshape_and_cache)   — 25 chains
- 384  reshape_cache  eager      cuda   native    aten_cuda        nvidia 
- 385  reshape_cache  compile    cuda   native    inductor_triton  nvidia 
- 386  reshape_cache  cudagraph  cuda   native    inductor_triton  nvidia 
- 387  reshape_cache  eager      rocm   native    aten_rocm        amd    
- 388  reshape_cache  compile    rocm   native    inductor_triton  amd    
- 389  reshape_cache  cudagraph  rocm   native    inductor_triton  amd    
- 390  reshape_cache  eager      cpu    native    aten_cpu         cpu    
- 391  reshape_cache  compile    cpu    native    inductor_cpp     cpu    
- 392  reshape_cache  eager      xpu    native    aten_xpu         intel  
- 393  reshape_cache  compile    xpu    native    inductor_triton  intel  
- 394  reshape_cache  compile    tpu    native    xla              tpu    
- 395  reshape_cache  eager      cuda   custom    nvcc             nvidia 
- 396  reshape_cache  compile    cuda   custom    nvcc             nvidia 
- 397  reshape_cache  cudagraph  cuda   custom    nvcc             nvidia 
- 398  reshape_cache  eager      rocm   custom    hip              amd    
- 399  reshape_cache  compile    rocm   custom    hip              amd    
- 400  reshape_cache  cudagraph  rocm   custom    hip              amd    
- 401  reshape_cache  eager      cuda   triton    triton_ptx       nvidia 
- 402  reshape_cache  compile    cuda   triton    triton_ptx       nvidia 
- 403  reshape_cache  cudagraph  cuda   triton    triton_ptx       nvidia 
- 404  reshape_cache  eager      rocm   triton    triton_hip       amd    
- 405  reshape_cache  compile    rocm   triton    triton_hip       amd    
- 406  reshape_cache  cudagraph  rocm   triton    triton_hip       amd    
- 407  reshape_cache  eager      xpu    triton    triton_xpu       intel  
- 408  reshape_cache  compile    xpu    triton    triton_xpu       intel  
+### reshape_cache   (reshape_and_cache)   — 64 chains
+ 892  cuda        reshape_cache none        na          native      aten_cuda  
+ 893  cuda        reshape_cache stock       inductor    native      inductor_triton
+ 894  cuda        reshape_cache stock       eager       native      aten_cuda  
+ 895  cuda        reshape_cache trace_once  inductor    native      inductor_triton
+ 896  cuda        reshape_cache trace_once  eager       native      aten_cuda  
+ 897  cuda        reshape_cache vllm        inductor    native      inductor_triton
+ 898  cuda        reshape_cache vllm        eager       native      aten_cuda  
+ 899  rocm        reshape_cache none        na          native      aten_rocm  
+ 900  rocm        reshape_cache stock       inductor    native      inductor_triton
+ 901  rocm        reshape_cache stock       eager       native      aten_rocm  
+ 902  rocm        reshape_cache trace_once  inductor    native      inductor_triton
+ 903  rocm        reshape_cache trace_once  eager       native      aten_rocm  
+ 904  rocm        reshape_cache vllm        inductor    native      inductor_triton
+ 905  rocm        reshape_cache vllm        eager       native      aten_rocm  
+ 906  cpu         reshape_cache none        na          native      aten_cpu   
+ 907  cpu         reshape_cache stock       inductor    native      inductor_cpp
+ 908  cpu         reshape_cache stock       eager       native      aten_cpu   
+ 909  cpu         reshape_cache trace_once  inductor    native      inductor_cpp
+ 910  cpu         reshape_cache trace_once  eager       native      aten_cpu   
+ 911  cpu         reshape_cache vllm        inductor    native      inductor_cpp
+ 912  cpu         reshape_cache vllm        eager       native      aten_cpu   
+ 913  xpu         reshape_cache none        na          native      aten_xpu   
+ 914  xpu         reshape_cache stock       inductor    native      inductor_triton
+ 915  xpu         reshape_cache stock       eager       native      aten_xpu   
+ 916  xpu         reshape_cache trace_once  inductor    native      inductor_triton
+ 917  xpu         reshape_cache trace_once  eager       native      aten_xpu   
+ 918  xpu         reshape_cache vllm        inductor    native      inductor_triton
+ 919  xpu         reshape_cache vllm        eager       native      aten_xpu   
+ 920  tpu         reshape_cache stock       openxla     native      xla        
+ 921  cuda        reshape_cache none        na          custom      nvcc       
+ 922  cuda        reshape_cache stock       inductor    custom      nvcc       
+ 923  cuda        reshape_cache stock       eager       custom      nvcc       
+ 924  cuda        reshape_cache trace_once  inductor    custom      nvcc       
+ 925  cuda        reshape_cache trace_once  eager       custom      nvcc       
+ 926  cuda        reshape_cache vllm        inductor    custom      nvcc       
+ 927  cuda        reshape_cache vllm        eager       custom      nvcc       
+ 928  rocm        reshape_cache none        na          custom      hip        
+ 929  rocm        reshape_cache stock       inductor    custom      hip        
+ 930  rocm        reshape_cache stock       eager       custom      hip        
+ 931  rocm        reshape_cache trace_once  inductor    custom      hip        
+ 932  rocm        reshape_cache trace_once  eager       custom      hip        
+ 933  rocm        reshape_cache vllm        inductor    custom      hip        
+ 934  rocm        reshape_cache vllm        eager       custom      hip        
+ 935  cuda        reshape_cache none        na          triton      triton_ptx 
+ 936  cuda        reshape_cache stock       inductor    triton      triton_ptx 
+ 937  cuda        reshape_cache stock       eager       triton      triton_ptx 
+ 938  cuda        reshape_cache trace_once  inductor    triton      triton_ptx 
+ 939  cuda        reshape_cache trace_once  eager       triton      triton_ptx 
+ 940  cuda        reshape_cache vllm        inductor    triton      triton_ptx 
+ 941  cuda        reshape_cache vllm        eager       triton      triton_ptx 
+ 942  rocm        reshape_cache none        na          triton      triton_hip 
+ 943  rocm        reshape_cache stock       inductor    triton      triton_hip 
+ 944  rocm        reshape_cache stock       eager       triton      triton_hip 
+ 945  rocm        reshape_cache trace_once  inductor    triton      triton_hip 
+ 946  rocm        reshape_cache trace_once  eager       triton      triton_hip 
+ 947  rocm        reshape_cache vllm        inductor    triton      triton_hip 
+ 948  rocm        reshape_cache vllm        eager       triton      triton_hip 
+ 949  xpu         reshape_cache none        na          triton      triton_xpu 
+ 950  xpu         reshape_cache stock       inductor    triton      triton_xpu 
+ 951  xpu         reshape_cache stock       eager       triton      triton_xpu 
+ 952  xpu         reshape_cache trace_once  inductor    triton      triton_xpu 
+ 953  xpu         reshape_cache trace_once  eager       triton      triton_xpu 
+ 954  xpu         reshape_cache vllm        inductor    triton      triton_xpu 
+ 955  xpu         reshape_cache vllm        eager       triton      triton_xpu 
 
-### causal_conv1d   (causal_conv1d)   — 18 chains
- 409  causal_conv1d  eager      cuda   native    aten_cuda        nvidia 
- 410  causal_conv1d  compile    cuda   native    inductor_triton  nvidia 
- 411  causal_conv1d  cudagraph  cuda   native    inductor_triton  nvidia 
- 412  causal_conv1d  eager      rocm   native    aten_rocm        amd    
- 413  causal_conv1d  compile    rocm   native    inductor_triton  amd    
- 414  causal_conv1d  cudagraph  rocm   native    inductor_triton  amd    
- 415  causal_conv1d  eager      cpu    native    aten_cpu         cpu    
- 416  causal_conv1d  compile    cpu    native    inductor_cpp     cpu    
- 417  causal_conv1d  compile    tpu    native    xla              tpu    
- 418  causal_conv1d  eager      cuda   custom    nvcc             nvidia 
- 419  causal_conv1d  compile    cuda   custom    nvcc             nvidia 
- 420  causal_conv1d  cudagraph  cuda   custom    nvcc             nvidia 
- 421  causal_conv1d  eager      cuda   triton    triton_ptx       nvidia 
- 422  causal_conv1d  compile    cuda   triton    triton_ptx       nvidia 
- 423  causal_conv1d  cudagraph  cuda   triton    triton_ptx       nvidia 
- 424  causal_conv1d  eager      rocm   triton    triton_hip       amd    
- 425  causal_conv1d  compile    rocm   triton    triton_hip       amd    
- 426  causal_conv1d  cudagraph  rocm   triton    triton_hip       amd    
+### causal_conv1d   (causal_conv1d)   — 43 chains
+ 956  cuda        causal_conv1d none        na          native      aten_cuda  
+ 957  cuda        causal_conv1d stock       inductor    native      inductor_triton
+ 958  cuda        causal_conv1d stock       eager       native      aten_cuda  
+ 959  cuda        causal_conv1d trace_once  inductor    native      inductor_triton
+ 960  cuda        causal_conv1d trace_once  eager       native      aten_cuda  
+ 961  cuda        causal_conv1d vllm        inductor    native      inductor_triton
+ 962  cuda        causal_conv1d vllm        eager       native      aten_cuda  
+ 963  rocm        causal_conv1d none        na          native      aten_rocm  
+ 964  rocm        causal_conv1d stock       inductor    native      inductor_triton
+ 965  rocm        causal_conv1d stock       eager       native      aten_rocm  
+ 966  rocm        causal_conv1d trace_once  inductor    native      inductor_triton
+ 967  rocm        causal_conv1d trace_once  eager       native      aten_rocm  
+ 968  rocm        causal_conv1d vllm        inductor    native      inductor_triton
+ 969  rocm        causal_conv1d vllm        eager       native      aten_rocm  
+ 970  cpu         causal_conv1d none        na          native      aten_cpu   
+ 971  cpu         causal_conv1d stock       inductor    native      inductor_cpp
+ 972  cpu         causal_conv1d stock       eager       native      aten_cpu   
+ 973  cpu         causal_conv1d trace_once  inductor    native      inductor_cpp
+ 974  cpu         causal_conv1d trace_once  eager       native      aten_cpu   
+ 975  cpu         causal_conv1d vllm        inductor    native      inductor_cpp
+ 976  cpu         causal_conv1d vllm        eager       native      aten_cpu   
+ 977  tpu         causal_conv1d stock       openxla     native      xla        
+ 978  cuda        causal_conv1d none        na          custom      nvcc       
+ 979  cuda        causal_conv1d stock       inductor    custom      nvcc       
+ 980  cuda        causal_conv1d stock       eager       custom      nvcc       
+ 981  cuda        causal_conv1d trace_once  inductor    custom      nvcc       
+ 982  cuda        causal_conv1d trace_once  eager       custom      nvcc       
+ 983  cuda        causal_conv1d vllm        inductor    custom      nvcc       
+ 984  cuda        causal_conv1d vllm        eager       custom      nvcc       
+ 985  cuda        causal_conv1d none        na          triton      triton_ptx 
+ 986  cuda        causal_conv1d stock       inductor    triton      triton_ptx 
+ 987  cuda        causal_conv1d stock       eager       triton      triton_ptx 
+ 988  cuda        causal_conv1d trace_once  inductor    triton      triton_ptx 
+ 989  cuda        causal_conv1d trace_once  eager       triton      triton_ptx 
+ 990  cuda        causal_conv1d vllm        inductor    triton      triton_ptx 
+ 991  cuda        causal_conv1d vllm        eager       triton      triton_ptx 
+ 992  rocm        causal_conv1d none        na          triton      triton_hip 
+ 993  rocm        causal_conv1d stock       inductor    triton      triton_hip 
+ 994  rocm        causal_conv1d stock       eager       triton      triton_hip 
+ 995  rocm        causal_conv1d trace_once  inductor    triton      triton_hip 
+ 996  rocm        causal_conv1d trace_once  eager       triton      triton_hip 
+ 997  rocm        causal_conv1d vllm        inductor    triton      triton_hip 
+ 998  rocm        causal_conv1d vllm        eager       triton      triton_hip 
 
-### mamba_ssm       (selective_scan / chunk_scan)   — 18 chains
- 427  mamba_ssm      eager      cuda   native    aten_cuda        nvidia 
- 428  mamba_ssm      compile    cuda   native    inductor_triton  nvidia 
- 429  mamba_ssm      cudagraph  cuda   native    inductor_triton  nvidia 
- 430  mamba_ssm      eager      rocm   native    aten_rocm        amd    
- 431  mamba_ssm      compile    rocm   native    inductor_triton  amd    
- 432  mamba_ssm      cudagraph  rocm   native    inductor_triton  amd    
- 433  mamba_ssm      eager      cpu    native    aten_cpu         cpu    
- 434  mamba_ssm      compile    cpu    native    inductor_cpp     cpu    
- 435  mamba_ssm      compile    tpu    native    xla              tpu    
- 436  mamba_ssm      eager      cuda   custom    nvcc             nvidia 
- 437  mamba_ssm      compile    cuda   custom    nvcc             nvidia 
- 438  mamba_ssm      cudagraph  cuda   custom    nvcc             nvidia 
- 439  mamba_ssm      eager      cuda   triton    triton_ptx       nvidia 
- 440  mamba_ssm      compile    cuda   triton    triton_ptx       nvidia 
- 441  mamba_ssm      cudagraph  cuda   triton    triton_ptx       nvidia 
- 442  mamba_ssm      eager      rocm   triton    triton_hip       amd    
- 443  mamba_ssm      compile    rocm   triton    triton_hip       amd    
- 444  mamba_ssm      cudagraph  rocm   triton    triton_hip       amd    
+### mamba_ssm       (selective_scan / chunk_scan)   — 43 chains
+ 999  cuda        mamba_ssm   none        na          native      aten_cuda  
+1000  cuda        mamba_ssm   stock       inductor    native      inductor_triton
+1001  cuda        mamba_ssm   stock       eager       native      aten_cuda  
+1002  cuda        mamba_ssm   trace_once  inductor    native      inductor_triton
+1003  cuda        mamba_ssm   trace_once  eager       native      aten_cuda  
+1004  cuda        mamba_ssm   vllm        inductor    native      inductor_triton
+1005  cuda        mamba_ssm   vllm        eager       native      aten_cuda  
+1006  rocm        mamba_ssm   none        na          native      aten_rocm  
+1007  rocm        mamba_ssm   stock       inductor    native      inductor_triton
+1008  rocm        mamba_ssm   stock       eager       native      aten_rocm  
+1009  rocm        mamba_ssm   trace_once  inductor    native      inductor_triton
+1010  rocm        mamba_ssm   trace_once  eager       native      aten_rocm  
+1011  rocm        mamba_ssm   vllm        inductor    native      inductor_triton
+1012  rocm        mamba_ssm   vllm        eager       native      aten_rocm  
+1013  cpu         mamba_ssm   none        na          native      aten_cpu   
+1014  cpu         mamba_ssm   stock       inductor    native      inductor_cpp
+1015  cpu         mamba_ssm   stock       eager       native      aten_cpu   
+1016  cpu         mamba_ssm   trace_once  inductor    native      inductor_cpp
+1017  cpu         mamba_ssm   trace_once  eager       native      aten_cpu   
+1018  cpu         mamba_ssm   vllm        inductor    native      inductor_cpp
+1019  cpu         mamba_ssm   vllm        eager       native      aten_cpu   
+1020  tpu         mamba_ssm   stock       openxla     native      xla        
+1021  cuda        mamba_ssm   none        na          custom      nvcc       
+1022  cuda        mamba_ssm   stock       inductor    custom      nvcc       
+1023  cuda        mamba_ssm   stock       eager       custom      nvcc       
+1024  cuda        mamba_ssm   trace_once  inductor    custom      nvcc       
+1025  cuda        mamba_ssm   trace_once  eager       custom      nvcc       
+1026  cuda        mamba_ssm   vllm        inductor    custom      nvcc       
+1027  cuda        mamba_ssm   vllm        eager       custom      nvcc       
+1028  cuda        mamba_ssm   none        na          triton      triton_ptx 
+1029  cuda        mamba_ssm   stock       inductor    triton      triton_ptx 
+1030  cuda        mamba_ssm   stock       eager       triton      triton_ptx 
+1031  cuda        mamba_ssm   trace_once  inductor    triton      triton_ptx 
+1032  cuda        mamba_ssm   trace_once  eager       triton      triton_ptx 
+1033  cuda        mamba_ssm   vllm        inductor    triton      triton_ptx 
+1034  cuda        mamba_ssm   vllm        eager       triton      triton_ptx 
+1035  rocm        mamba_ssm   none        na          triton      triton_hip 
+1036  rocm        mamba_ssm   stock       inductor    triton      triton_hip 
+1037  rocm        mamba_ssm   stock       eager       triton      triton_hip 
+1038  rocm        mamba_ssm   trace_once  inductor    triton      triton_hip 
+1039  rocm        mamba_ssm   trace_once  eager       triton      triton_hip 
+1040  rocm        mamba_ssm   vllm        inductor    triton      triton_hip 
+1041  rocm        mamba_ssm   vllm        eager       triton      triton_hip 
 
-### lora            (LoRA shrink/expand)   — 21 chains
- 445  lora           eager      cuda   native    aten_cuda        nvidia 
- 446  lora           compile    cuda   native    inductor_triton  nvidia 
- 447  lora           cudagraph  cuda   native    inductor_triton  nvidia 
- 448  lora           eager      rocm   native    aten_rocm        amd    
- 449  lora           compile    rocm   native    inductor_triton  amd    
- 450  lora           cudagraph  rocm   native    inductor_triton  amd    
- 451  lora           eager      cpu    native    aten_cpu         cpu    
- 452  lora           compile    cpu    native    inductor_cpp     cpu    
- 453  lora           eager      xpu    native    aten_xpu         intel  
- 454  lora           compile    xpu    native    inductor_triton  intel  
- 455  lora           compile    tpu    native    xla              tpu    
- 456  lora           eager      xpu    custom    sycl             intel  
- 457  lora           compile    xpu    custom    sycl             intel  
- 458  lora           eager      cuda   triton    triton_ptx       nvidia 
- 459  lora           compile    cuda   triton    triton_ptx       nvidia 
- 460  lora           cudagraph  cuda   triton    triton_ptx       nvidia 
- 461  lora           eager      rocm   triton    triton_hip       amd    
- 462  lora           compile    rocm   triton    triton_hip       amd    
- 463  lora           cudagraph  rocm   triton    triton_hip       amd    
- 464  lora           eager      xpu    triton    triton_xpu       intel  
- 465  lora           compile    xpu    triton    triton_xpu       intel  
+### lora            (LoRA shrink/expand)   — 57 chains
+1042  cuda        lora        none        na          native      aten_cuda  
+1043  cuda        lora        stock       inductor    native      inductor_triton
+1044  cuda        lora        stock       eager       native      aten_cuda  
+1045  cuda        lora        trace_once  inductor    native      inductor_triton
+1046  cuda        lora        trace_once  eager       native      aten_cuda  
+1047  cuda        lora        vllm        inductor    native      inductor_triton
+1048  cuda        lora        vllm        eager       native      aten_cuda  
+1049  rocm        lora        none        na          native      aten_rocm  
+1050  rocm        lora        stock       inductor    native      inductor_triton
+1051  rocm        lora        stock       eager       native      aten_rocm  
+1052  rocm        lora        trace_once  inductor    native      inductor_triton
+1053  rocm        lora        trace_once  eager       native      aten_rocm  
+1054  rocm        lora        vllm        inductor    native      inductor_triton
+1055  rocm        lora        vllm        eager       native      aten_rocm  
+1056  cpu         lora        none        na          native      aten_cpu   
+1057  cpu         lora        stock       inductor    native      inductor_cpp
+1058  cpu         lora        stock       eager       native      aten_cpu   
+1059  cpu         lora        trace_once  inductor    native      inductor_cpp
+1060  cpu         lora        trace_once  eager       native      aten_cpu   
+1061  cpu         lora        vllm        inductor    native      inductor_cpp
+1062  cpu         lora        vllm        eager       native      aten_cpu   
+1063  xpu         lora        none        na          native      aten_xpu   
+1064  xpu         lora        stock       inductor    native      inductor_triton
+1065  xpu         lora        stock       eager       native      aten_xpu   
+1066  xpu         lora        trace_once  inductor    native      inductor_triton
+1067  xpu         lora        trace_once  eager       native      aten_xpu   
+1068  xpu         lora        vllm        inductor    native      inductor_triton
+1069  xpu         lora        vllm        eager       native      aten_xpu   
+1070  tpu         lora        stock       openxla     native      xla        
+1071  xpu         lora        none        na          custom      sycl       
+1072  xpu         lora        stock       inductor    custom      sycl       
+1073  xpu         lora        stock       eager       custom      sycl       
+1074  xpu         lora        trace_once  inductor    custom      sycl       
+1075  xpu         lora        trace_once  eager       custom      sycl       
+1076  xpu         lora        vllm        inductor    custom      sycl       
+1077  xpu         lora        vllm        eager       custom      sycl       
+1078  cuda        lora        none        na          triton      triton_ptx 
+1079  cuda        lora        stock       inductor    triton      triton_ptx 
+1080  cuda        lora        stock       eager       triton      triton_ptx 
+1081  cuda        lora        trace_once  inductor    triton      triton_ptx 
+1082  cuda        lora        trace_once  eager       triton      triton_ptx 
+1083  cuda        lora        vllm        inductor    triton      triton_ptx 
+1084  cuda        lora        vllm        eager       triton      triton_ptx 
+1085  rocm        lora        none        na          triton      triton_hip 
+1086  rocm        lora        stock       inductor    triton      triton_hip 
+1087  rocm        lora        stock       eager       triton      triton_hip 
+1088  rocm        lora        trace_once  inductor    triton      triton_hip 
+1089  rocm        lora        trace_once  eager       triton      triton_hip 
+1090  rocm        lora        vllm        inductor    triton      triton_hip 
+1091  rocm        lora        vllm        eager       triton      triton_hip 
+1092  xpu         lora        none        na          triton      triton_xpu 
+1093  xpu         lora        stock       inductor    triton      triton_xpu 
+1094  xpu         lora        stock       eager       triton      triton_xpu 
+1095  xpu         lora        trace_once  inductor    triton      triton_xpu 
+1096  xpu         lora        trace_once  eager       triton      triton_xpu 
+1097  xpu         lora        vllm        inductor    triton      triton_xpu 
+1098  xpu         lora        vllm        eager       triton      triton_xpu 
 
-### sampler         (TopK/TopP sampler)   — 14 chains
- 466  sampler        eager      cuda   native    aten_cuda        nvidia 
- 467  sampler        compile    cuda   native    inductor_triton  nvidia 
- 468  sampler        cudagraph  cuda   native    inductor_triton  nvidia 
- 469  sampler        eager      rocm   native    aten_rocm        amd    
- 470  sampler        compile    rocm   native    inductor_triton  amd    
- 471  sampler        cudagraph  rocm   native    inductor_triton  amd    
- 472  sampler        eager      cpu    native    aten_cpu         cpu    
- 473  sampler        compile    cpu    native    inductor_cpp     cpu    
- 474  sampler        eager      xpu    native    aten_xpu         intel  
- 475  sampler        compile    xpu    native    inductor_triton  intel  
- 476  sampler        compile    tpu    native    xla              tpu    
- 477  sampler        eager      cuda   external  vendor           nvidia 
- 478  sampler        compile    cuda   external  vendor           nvidia 
- 479  sampler        cudagraph  cuda   external  vendor           nvidia 
+### sampler         (TopK/TopP sampler)   — 36 chains
+1099  cuda        sampler     none        na          native      aten_cuda  
+1100  cuda        sampler     stock       inductor    native      inductor_triton
+1101  cuda        sampler     stock       eager       native      aten_cuda  
+1102  cuda        sampler     trace_once  inductor    native      inductor_triton
+1103  cuda        sampler     trace_once  eager       native      aten_cuda  
+1104  cuda        sampler     vllm        inductor    native      inductor_triton
+1105  cuda        sampler     vllm        eager       native      aten_cuda  
+1106  rocm        sampler     none        na          native      aten_rocm  
+1107  rocm        sampler     stock       inductor    native      inductor_triton
+1108  rocm        sampler     stock       eager       native      aten_rocm  
+1109  rocm        sampler     trace_once  inductor    native      inductor_triton
+1110  rocm        sampler     trace_once  eager       native      aten_rocm  
+1111  rocm        sampler     vllm        inductor    native      inductor_triton
+1112  rocm        sampler     vllm        eager       native      aten_rocm  
+1113  cpu         sampler     none        na          native      aten_cpu   
+1114  cpu         sampler     stock       inductor    native      inductor_cpp
+1115  cpu         sampler     stock       eager       native      aten_cpu   
+1116  cpu         sampler     trace_once  inductor    native      inductor_cpp
+1117  cpu         sampler     trace_once  eager       native      aten_cpu   
+1118  cpu         sampler     vllm        inductor    native      inductor_cpp
+1119  cpu         sampler     vllm        eager       native      aten_cpu   
+1120  xpu         sampler     none        na          native      aten_xpu   
+1121  xpu         sampler     stock       inductor    native      inductor_triton
+1122  xpu         sampler     stock       eager       native      aten_xpu   
+1123  xpu         sampler     trace_once  inductor    native      inductor_triton
+1124  xpu         sampler     trace_once  eager       native      aten_xpu   
+1125  xpu         sampler     vllm        inductor    native      inductor_triton
+1126  xpu         sampler     vllm        eager       native      aten_xpu   
+1127  tpu         sampler     stock       openxla     native      xla        
+1128  cuda        sampler     none        na          external    vendor     
+1129  cuda        sampler     stock       inductor    external    vendor     
+1130  cuda        sampler     stock       eager       external    vendor     
+1131  cuda        sampler     trace_once  inductor    external    vendor     
+1132  cuda        sampler     trace_once  eager       external    vendor     
+1133  cuda        sampler     vllm        inductor    external    vendor     
+1134  cuda        sampler     vllm        eager       external    vendor     
 
-### allreduce       (AllReduce)   — 17 chains
- 480  allreduce      eager      cuda   native    ccl_nccl         nvidia 
- 481  allreduce      compile    cuda   native    ccl_nccl         nvidia 
- 482  allreduce      cudagraph  cuda   native    ccl_nccl         nvidia 
- 483  allreduce      eager      rocm   native    ccl_rccl         amd    
- 484  allreduce      compile    rocm   native    ccl_rccl         amd    
- 485  allreduce      cudagraph  rocm   native    ccl_rccl         amd    
- 486  allreduce      eager      cpu    native    ccl_gloo         cpu    
- 487  allreduce      compile    cpu    native    ccl_gloo         cpu    
- 488  allreduce      eager      cuda   custom    nvcc             nvidia 
- 489  allreduce      compile    cuda   custom    nvcc             nvidia 
- 490  allreduce      cudagraph  cuda   custom    nvcc             nvidia 
- 491  allreduce      eager      rocm   custom    hip              amd    
- 492  allreduce      compile    rocm   custom    hip              amd    
- 493  allreduce      cudagraph  rocm   custom    hip              amd    
- 494  allreduce      eager      cuda   external  vendor           nvidia 
- 495  allreduce      compile    cuda   external  vendor           nvidia 
- 496  allreduce      cudagraph  cuda   external  vendor           nvidia 
+### allreduce       (AllReduce)   — 42 chains
+1135  cuda        allreduce   none        na          native      ccl_nccl   
+1136  cuda        allreduce   stock       inductor    native      ccl_nccl   
+1137  cuda        allreduce   stock       eager       native      ccl_nccl   
+1138  cuda        allreduce   trace_once  inductor    native      ccl_nccl   
+1139  cuda        allreduce   trace_once  eager       native      ccl_nccl   
+1140  cuda        allreduce   vllm        inductor    native      ccl_nccl   
+1141  cuda        allreduce   vllm        eager       native      ccl_nccl   
+1142  rocm        allreduce   none        na          native      ccl_rccl   
+1143  rocm        allreduce   stock       inductor    native      ccl_rccl   
+1144  rocm        allreduce   stock       eager       native      ccl_rccl   
+1145  rocm        allreduce   trace_once  inductor    native      ccl_rccl   
+1146  rocm        allreduce   trace_once  eager       native      ccl_rccl   
+1147  rocm        allreduce   vllm        inductor    native      ccl_rccl   
+1148  rocm        allreduce   vllm        eager       native      ccl_rccl   
+1149  cpu         allreduce   none        na          native      ccl_gloo   
+1150  cpu         allreduce   stock       inductor    native      ccl_gloo   
+1151  cpu         allreduce   stock       eager       native      ccl_gloo   
+1152  cpu         allreduce   trace_once  inductor    native      ccl_gloo   
+1153  cpu         allreduce   trace_once  eager       native      ccl_gloo   
+1154  cpu         allreduce   vllm        inductor    native      ccl_gloo   
+1155  cpu         allreduce   vllm        eager       native      ccl_gloo   
+1156  cuda        allreduce   none        na          custom      nvcc       
+1157  cuda        allreduce   stock       inductor    custom      nvcc       
+1158  cuda        allreduce   stock       eager       custom      nvcc       
+1159  cuda        allreduce   trace_once  inductor    custom      nvcc       
+1160  cuda        allreduce   trace_once  eager       custom      nvcc       
+1161  cuda        allreduce   vllm        inductor    custom      nvcc       
+1162  cuda        allreduce   vllm        eager       custom      nvcc       
+1163  rocm        allreduce   none        na          custom      hip        
+1164  rocm        allreduce   stock       inductor    custom      hip        
+1165  rocm        allreduce   stock       eager       custom      hip        
+1166  rocm        allreduce   trace_once  inductor    custom      hip        
+1167  rocm        allreduce   trace_once  eager       custom      hip        
+1168  rocm        allreduce   vllm        inductor    custom      hip        
+1169  rocm        allreduce   vllm        eager       custom      hip        
+1170  cuda        allreduce   none        na          external    vendor     
+1171  cuda        allreduce   stock       inductor    external    vendor     
+1172  cuda        allreduce   stock       eager       external    vendor     
+1173  cuda        allreduce   trace_once  inductor    external    vendor     
+1174  cuda        allreduce   trace_once  eager       external    vendor     
+1175  cuda        allreduce   vllm        inductor    external    vendor     
+1176  cuda        allreduce   vllm        eager       external    vendor     
 
-### allgather       (AllGather)   — 14 chains
- 497  allgather      eager      cuda   native    ccl_nccl         nvidia 
- 498  allgather      compile    cuda   native    ccl_nccl         nvidia 
- 499  allgather      cudagraph  cuda   native    ccl_nccl         nvidia 
- 500  allgather      eager      rocm   native    ccl_rccl         amd    
- 501  allgather      compile    rocm   native    ccl_rccl         amd    
- 502  allgather      cudagraph  rocm   native    ccl_rccl         amd    
- 503  allgather      eager      cpu    native    ccl_gloo         cpu    
- 504  allgather      compile    cpu    native    ccl_gloo         cpu    
- 505  allgather      eager      xpu    native    ccl_xccl         intel  
- 506  allgather      compile    xpu    native    ccl_xccl         intel  
- 507  allgather      compile    tpu    native    ccl_xla          tpu    
- 508  allgather      eager      cuda   custom    nvcc             nvidia 
- 509  allgather      compile    cuda   custom    nvcc             nvidia 
- 510  allgather      cudagraph  cuda   custom    nvcc             nvidia 
+### allgather       (AllGather)   — 36 chains
+1177  cuda        allgather   none        na          native      ccl_nccl   
+1178  cuda        allgather   stock       inductor    native      ccl_nccl   
+1179  cuda        allgather   stock       eager       native      ccl_nccl   
+1180  cuda        allgather   trace_once  inductor    native      ccl_nccl   
+1181  cuda        allgather   trace_once  eager       native      ccl_nccl   
+1182  cuda        allgather   vllm        inductor    native      ccl_nccl   
+1183  cuda        allgather   vllm        eager       native      ccl_nccl   
+1184  rocm        allgather   none        na          native      ccl_rccl   
+1185  rocm        allgather   stock       inductor    native      ccl_rccl   
+1186  rocm        allgather   stock       eager       native      ccl_rccl   
+1187  rocm        allgather   trace_once  inductor    native      ccl_rccl   
+1188  rocm        allgather   trace_once  eager       native      ccl_rccl   
+1189  rocm        allgather   vllm        inductor    native      ccl_rccl   
+1190  rocm        allgather   vllm        eager       native      ccl_rccl   
+1191  cpu         allgather   none        na          native      ccl_gloo   
+1192  cpu         allgather   stock       inductor    native      ccl_gloo   
+1193  cpu         allgather   stock       eager       native      ccl_gloo   
+1194  cpu         allgather   trace_once  inductor    native      ccl_gloo   
+1195  cpu         allgather   trace_once  eager       native      ccl_gloo   
+1196  cpu         allgather   vllm        inductor    native      ccl_gloo   
+1197  cpu         allgather   vllm        eager       native      ccl_gloo   
+1198  xpu         allgather   none        na          native      ccl_xccl   
+1199  xpu         allgather   stock       inductor    native      ccl_xccl   
+1200  xpu         allgather   stock       eager       native      ccl_xccl   
+1201  xpu         allgather   trace_once  inductor    native      ccl_xccl   
+1202  xpu         allgather   trace_once  eager       native      ccl_xccl   
+1203  xpu         allgather   vllm        inductor    native      ccl_xccl   
+1204  xpu         allgather   vllm        eager       native      ccl_xccl   
+1205  tpu         allgather   stock       openxla     native      ccl_xla    
+1206  cuda        allgather   none        na          custom      nvcc       
+1207  cuda        allgather   stock       inductor    custom      nvcc       
+1208  cuda        allgather   stock       eager       custom      nvcc       
+1209  cuda        allgather   trace_once  inductor    custom      nvcc       
+1210  cuda        allgather   trace_once  eager       custom      nvcc       
+1211  cuda        allgather   vllm        inductor    custom      nvcc       
+1212  cuda        allgather   vllm        eager       custom      nvcc       
 
-### reduce_scatter  (ReduceScatter)   — 10 chains
- 511  reduce_scatter eager      cuda   native    ccl_nccl         nvidia 
- 512  reduce_scatter compile    cuda   native    ccl_nccl         nvidia 
- 513  reduce_scatter cudagraph  cuda   native    ccl_nccl         nvidia 
- 514  reduce_scatter eager      rocm   native    ccl_rccl         amd    
- 515  reduce_scatter compile    rocm   native    ccl_rccl         amd    
- 516  reduce_scatter cudagraph  rocm   native    ccl_rccl         amd    
- 517  reduce_scatter eager      cpu    native    ccl_gloo         cpu    
- 518  reduce_scatter compile    cpu    native    ccl_gloo         cpu    
- 519  reduce_scatter eager      xpu    native    ccl_xccl         intel  
- 520  reduce_scatter compile    xpu    native    ccl_xccl         intel  
+### reduce_scatter  (ReduceScatter)   — 28 chains
+1213  cuda        reduce_scatter none        na          native      ccl_nccl   
+1214  cuda        reduce_scatter stock       inductor    native      ccl_nccl   
+1215  cuda        reduce_scatter stock       eager       native      ccl_nccl   
+1216  cuda        reduce_scatter trace_once  inductor    native      ccl_nccl   
+1217  cuda        reduce_scatter trace_once  eager       native      ccl_nccl   
+1218  cuda        reduce_scatter vllm        inductor    native      ccl_nccl   
+1219  cuda        reduce_scatter vllm        eager       native      ccl_nccl   
+1220  rocm        reduce_scatter none        na          native      ccl_rccl   
+1221  rocm        reduce_scatter stock       inductor    native      ccl_rccl   
+1222  rocm        reduce_scatter stock       eager       native      ccl_rccl   
+1223  rocm        reduce_scatter trace_once  inductor    native      ccl_rccl   
+1224  rocm        reduce_scatter trace_once  eager       native      ccl_rccl   
+1225  rocm        reduce_scatter vllm        inductor    native      ccl_rccl   
+1226  rocm        reduce_scatter vllm        eager       native      ccl_rccl   
+1227  cpu         reduce_scatter none        na          native      ccl_gloo   
+1228  cpu         reduce_scatter stock       inductor    native      ccl_gloo   
+1229  cpu         reduce_scatter stock       eager       native      ccl_gloo   
+1230  cpu         reduce_scatter trace_once  inductor    native      ccl_gloo   
+1231  cpu         reduce_scatter trace_once  eager       native      ccl_gloo   
+1232  cpu         reduce_scatter vllm        inductor    native      ccl_gloo   
+1233  cpu         reduce_scatter vllm        eager       native      ccl_gloo   
+1234  xpu         reduce_scatter none        na          native      ccl_xccl   
+1235  xpu         reduce_scatter stock       inductor    native      ccl_xccl   
+1236  xpu         reduce_scatter stock       eager       native      ccl_xccl   
+1237  xpu         reduce_scatter trace_once  inductor    native      ccl_xccl   
+1238  xpu         reduce_scatter trace_once  eager       native      ccl_xccl   
+1239  xpu         reduce_scatter vllm        inductor    native      ccl_xccl   
+1240  xpu         reduce_scatter vllm        eager       native      ccl_xccl   
 
-### ep_a2a          (EP dispatch/combine)   — 9 chains
- 521  ep_a2a         eager      cuda   native    ccl_nccl         nvidia 
- 522  ep_a2a         compile    cuda   native    ccl_nccl         nvidia 
- 523  ep_a2a         cudagraph  cuda   native    ccl_nccl         nvidia 
- 524  ep_a2a         eager      rocm   native    ccl_rccl         amd    
- 525  ep_a2a         compile    rocm   native    ccl_rccl         amd    
- 526  ep_a2a         cudagraph  rocm   native    ccl_rccl         amd    
- 527  ep_a2a         eager      cuda   external  vendor           nvidia 
- 528  ep_a2a         compile    cuda   external  vendor           nvidia 
- 529  ep_a2a         cudagraph  cuda   external  vendor           nvidia 
+### ep_a2a          (EP dispatch/combine)   — 21 chains
+1241  cuda        ep_a2a      none        na          native      ccl_nccl   
+1242  cuda        ep_a2a      stock       inductor    native      ccl_nccl   
+1243  cuda        ep_a2a      stock       eager       native      ccl_nccl   
+1244  cuda        ep_a2a      trace_once  inductor    native      ccl_nccl   
+1245  cuda        ep_a2a      trace_once  eager       native      ccl_nccl   
+1246  cuda        ep_a2a      vllm        inductor    native      ccl_nccl   
+1247  cuda        ep_a2a      vllm        eager       native      ccl_nccl   
+1248  rocm        ep_a2a      none        na          native      ccl_rccl   
+1249  rocm        ep_a2a      stock       inductor    native      ccl_rccl   
+1250  rocm        ep_a2a      stock       eager       native      ccl_rccl   
+1251  rocm        ep_a2a      trace_once  inductor    native      ccl_rccl   
+1252  rocm        ep_a2a      trace_once  eager       native      ccl_rccl   
+1253  rocm        ep_a2a      vllm        inductor    native      ccl_rccl   
+1254  rocm        ep_a2a      vllm        eager       native      ccl_rccl   
+1255  cuda        ep_a2a      none        na          external    vendor     
+1256  cuda        ep_a2a      stock       inductor    external    vendor     
+1257  cuda        ep_a2a      stock       eager       external    vendor     
+1258  cuda        ep_a2a      trace_once  inductor    external    vendor     
+1259  cuda        ep_a2a      trace_once  eager       external    vendor     
+1260  cuda        ep_a2a      vllm        inductor    external    vendor     
+1261  cuda        ep_a2a      vllm        eager       external    vendor     
 
-============================================================================================
-TOTAL: 529 combinations across 24 ops
-
-VALIDATION
---------------------------------------------------------------------------------------------
-result: ALL PASS  (0 error(s))
-dead backend nodes: none
-
-per-op chain counts:
-  rmsnorm          29
-  gemma_rmsnorm    29
-  rmsnorm_gated    29
-  silu             29
-  gelu             29
-  quick_gelu       29
-  rope             27
-  attn             27
-  mla              18
-  embedding        11
-  linear           29
-  scaled_mm        18
-  fp8_quant        25
-  int8_quant       25
-  moe              29
-  reshape_cache    25
-  causal_conv1d    18
-  mamba_ssm        18
-  lora             21
-  sampler          14
-  allreduce        17
-  allgather        14
-  reduce_scatter   10
-  ep_a2a            9
+====================================================================================================
+TOTAL: 1261 combinations across 24 ops
