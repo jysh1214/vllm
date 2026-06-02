@@ -2,6 +2,56 @@ RVV-relevant CPU lowering chains  (platform = CPU / RISC-V,  op = *)
 Collapsed over ops. Columns:  OP | COMPMODE | TC-BACKEND | SOURCE | MECHANISM
 ============================================================================================
 
+vLLM CPU stack on RISC-V — where each RVV path plugs in:
+
+```mermaid
+graph TD
+  classDef vllm fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
+  classDef pytorch fill:#ffe4e6,stroke:#e11d48,color:#881337;
+  classDef lib fill:#dcfce7,stroke:#16a34a,color:#14532d;
+  classDef hw fill:#fef9c3,stroke:#ca8a04,color:#713f12;
+
+  subgraph VLLM["vLLM"]
+    MODEL["Model · Linear layer<br/>(aten::mm)"]
+    VOPS["vLLM CPU custom ops · csrc/cpu<br/>onednn_mm · weight_packed_linear · RVV vec<br/><b>Path D: RVV kernel here</b>"]
+  end
+
+  subgraph PT["PyTorch"]
+    ATEN["ATen<br/>aten::mm dispatch"]
+    INDUCTOR["Inductor<br/>C++/OpenMP codegen<br/><b>Path B: VecRVV here</b>"]
+    ATVEC["at::vec<br/>SIMD abstraction<br/><b>Path B: RVV backend here</b>"]
+  end
+
+  subgraph LIB["Math libraries"]
+    OPENBLAS["OpenBLAS · fp32 GEMM<br/><b>Path A: RVV here</b>"]
+    ONEDNN["oneDNN · bf16/int8 GEMM<br/><b>Path C: RVV here</b>"]
+  end
+
+  HW["RISC-V CPU · RVV (Vector extension)"]:::hw
+
+  MODEL -->|"custom op (default)"| VOPS
+  MODEL -->|"eager / fallback"| ATEN
+  MODEL -. "torch.compile" .-> INDUCTOR
+  INDUCTOR -. "defers mm" .-> ATEN
+  INDUCTOR --> ATVEC
+  ATEN -->|"fp32"| OPENBLAS
+  ATEN -->|"bf16 / int8"| ONEDNN
+  VOPS --> ONEDNN
+  OPENBLAS --> HW
+  ONEDNN --> HW
+  ATVEC --> HW
+  VOPS --> HW
+
+  class MODEL,VOPS vllm;
+  class ATEN,INDUCTOR,ATVEC pytorch;
+  class OPENBLAS,ONEDNN lib;
+```
+
+Path A: RVV in OpenBLAS (PyTorch links it; fp32) | Path B: VecRVV + at::vec (PyTorch, upstream)
+Path C: RVV in vLLM's fetched oneDNN (vLLM-built lib) | Path D: RVV kernel in vLLM csrc/cpu (vLLM)
+
+============================================================================================
+
 ### ATen-CPU dispatch   (4 chains)   * = 20 op(s): attn, causal_conv1d, embedding, fp8_quant, gelu, gemma_rmsnorm, int8_quant, linear, lora, mamba_ssm, mla, moe, quick_gelu, reshape_cache, rmsnorm, rmsnorm_gated, rope, sampler, scaled_mm, silu
   1  *   NONE                 -         Native / ATen     ATen-CPU dispatch
   2  *   STOCK_TORCH_COMPILE  eager     Native / ATen     ATen-CPU dispatch

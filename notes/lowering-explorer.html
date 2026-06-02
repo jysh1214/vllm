@@ -406,9 +406,9 @@ const SUPPORT = {
   // --- gemm / quant ---
   linear: {
     native:   ["cuda","rocm","cpu","xpu","tpu"],   // torch.matmul -> cuBLAS/rocBLAS/oneDNN/XLA
-    custom:   ["cuda"],                            // w8a8 etc.
+    custom:   ["cuda","cpu"],                      // cuda: w8a8 etc.; cpu: SGL AMX weight_packed_linear (VLLM_CPU_SGL_KERNEL)
     triton:   ["cuda","rocm","xpu"],
-    external: ["cuda","cpu","xpu"],                // CUTLASS/Marlin/Machete; oneDNN
+    external: ["cuda","cpu","xpu"],                // CUTLASS/Marlin/Machete; oneDNN (via torch.ops._C custom op)
   },
   scaled_mm: {
     native:   ["cuda","rocm","cpu"],               // torch._scaled_mm
