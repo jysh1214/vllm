@@ -1,0 +1,35 @@
+RVV-relevant CPU lowering chains  (platform = CPU / RISC-V,  op = *)
+Collapsed over ops. Columns:  OP | COMPMODE | TC-BACKEND | SOURCE | MECHANISM
+============================================================================================
+
+### ATen-CPU dispatch   (4 chains)   * = 20 op(s): attn, causal_conv1d, embedding, fp8_quant, gelu, gemma_rmsnorm, int8_quant, linear, lora, mamba_ssm, mla, moe, quick_gelu, reshape_cache, rmsnorm, rmsnorm_gated, rope, sampler, scaled_mm, silu
+  1  *   NONE                 -         Native / ATen     ATen-CPU dispatch
+  2  *   STOCK_TORCH_COMPILE  eager     Native / ATen     ATen-CPU dispatch
+  3  *   DYNAMO_TRACE_ONCE    eager     Native / ATen     ATen-CPU dispatch
+  4  *   VLLM_COMPILE         eager     Native / ATen     ATen-CPU dispatch
+
+### Inductor -> C++/OpenMP   (3 chains)   * = 20 op(s): attn, causal_conv1d, embedding, fp8_quant, gelu, gemma_rmsnorm, int8_quant, linear, lora, mamba_ssm, mla, moe, quick_gelu, reshape_cache, rmsnorm, rmsnorm_gated, rope, sampler, scaled_mm, silu
+  5  *   STOCK_TORCH_COMPILE  inductor  Native / ATen     Inductor -> C++/OpenMP
+  6  *   DYNAMO_TRACE_ONCE    inductor  Native / ATen     Inductor -> C++/OpenMP
+  7  *   VLLM_COMPILE         inductor  Native / ATen     Inductor -> C++/OpenMP
+
+### Prebuilt CPU op   (7 chains)   * = 6 op(s): gelu, gemma_rmsnorm, quick_gelu, rmsnorm, rope, silu
+  8  *   NONE                 -         Custom C++/CUDA   Prebuilt CPU op
+  9  *   STOCK_TORCH_COMPILE  eager     Custom C++/CUDA   Prebuilt CPU op
+ 10  *   STOCK_TORCH_COMPILE  inductor  Custom C++/CUDA   Prebuilt CPU op
+ 11  *   DYNAMO_TRACE_ONCE    eager     Custom C++/CUDA   Prebuilt CPU op
+ 12  *   DYNAMO_TRACE_ONCE    inductor  Custom C++/CUDA   Prebuilt CPU op
+ 13  *   VLLM_COMPILE         eager     Custom C++/CUDA   Prebuilt CPU op
+ 14  *   VLLM_COMPILE         inductor  Custom C++/CUDA   Prebuilt CPU op
+
+### External: oneDNN   (7 chains)   * = 2 op(s): linear, scaled_mm
+ 15  *   NONE                 -         External library  External: oneDNN
+ 16  *   STOCK_TORCH_COMPILE  eager     External library  External: oneDNN
+ 17  *   STOCK_TORCH_COMPILE  inductor  External library  External: oneDNN
+ 18  *   DYNAMO_TRACE_ONCE    eager     External library  External: oneDNN
+ 19  *   DYNAMO_TRACE_ONCE    inductor  External library  External: oneDNN
+ 20  *   VLLM_COMPILE         eager     External library  External: oneDNN
+ 21  *   VLLM_COMPILE         inductor  External library  External: oneDNN
+
+============================================================================================
+TOTAL: 21 distinct chain patterns (op=*)
