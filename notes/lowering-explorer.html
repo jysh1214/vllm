@@ -278,10 +278,10 @@ const LAYERS = [
   { id: "mechanism", title: "Launch mechanism (per-op)", desc: "the actual kernel compile+launch — DERIVED from source + platform + compile mode",
     labels: {
       // ATen eager dispatch — torch's own kernels; library backing GEMM noted in the sublabel
-      aten_cuda:  ["ATen-CUDA dispatch", "torch eager kernels · GEMM→cuBLAS/cuDNN"],
-      aten_rocm:  ["ATen-HIP dispatch", "torch eager kernels · GEMM→rocBLAS/MIOpen"],
+      aten_cuda:  ["ATen-CUDA dispatch", "torch eager kernels · GEMM→cuBLAS/cuBLASLt · conv→cuDNN"],
+      aten_rocm:  ["ATen-HIP dispatch", "torch eager kernels · GEMM→rocBLAS/hipBLASLt · conv→MIOpen"],
       aten_cpu:   ["ATen-CPU dispatch", "torch vec C++ · fp32 GEMM→BLAS (MKL x86 / OpenBLAS ARM) · bf16/int8→oneDNN"],
-      aten_xpu:   ["ATen-XPU dispatch", "torch SYCL kernels · GEMM→oneDNN"],
+      aten_xpu:   ["ATen-XPU dispatch", "torch SYCL kernels · GEMM→oneDNN · linalg→oneMKL"],
       // torch.compile replaces ATen dispatch for native ops with Inductor codegen
       inductor_triton: ["Inductor → Triton", "FX codegen · PTX / HIP / SPIR-V"],
       inductor_cpp:    ["Inductor → C++/OpenMP", "FX codegen · CPU"],
