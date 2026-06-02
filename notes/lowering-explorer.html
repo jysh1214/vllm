@@ -280,7 +280,7 @@ const LAYERS = [
       // ATen eager dispatch — torch's own kernels; library backing GEMM noted in the sublabel
       aten_cuda:  ["ATen-CUDA dispatch", "torch eager kernels · GEMM→cuBLAS/cuDNN"],
       aten_rocm:  ["ATen-HIP dispatch", "torch eager kernels · GEMM→rocBLAS/MIOpen"],
-      aten_cpu:   ["ATen-CPU dispatch", "torch vectorized C++ · GEMM→PyTorch BLAS (MKL x86 / OpenBLAS ARM) · conv→oneDNN"],
+      aten_cpu:   ["ATen-CPU dispatch", "torch vec C++ · fp32 GEMM→BLAS (MKL x86 / OpenBLAS ARM) · bf16/int8→oneDNN"],
       aten_xpu:   ["ATen-XPU dispatch", "torch SYCL kernels · GEMM→oneDNN"],
       // torch.compile replaces ATen dispatch for native ops with Inductor codegen
       inductor_triton: ["Inductor → Triton", "FX codegen · PTX / HIP / SPIR-V"],
