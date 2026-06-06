@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vllm-kv-csv-logger"
+version = "0.1.0"
+description = "Dump vLLM v1 KV-cache / scheduler stats to CSV via the stat-logger plugin hook"
+readme = "README.md"
+requires-python = ">=3.9"
+# vLLM is expected to be already installed in the environment; it is intentionally
+# not listed as a dependency so installing this plugin never pulls in / rebuilds vLLM.
+
+# vLLM discovers stat-logger plugins through this entry point group. Enable at
+# runtime with: VLLM_PLUGINS=kv_csv
+[project.entry-points."vllm.stat_logger_plugins"]
+kv_csv = "vllm_kv_csv_logger:KVCsvLogger"
+
+[tool.setuptools]
+packages = ["vllm_kv_csv_logger"]
