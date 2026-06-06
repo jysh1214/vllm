@@ -5,7 +5,7 @@ Writes one CSV row per scheduler step from the aggregate ``SchedulerStats`` /
 offline analysis (pandas / spreadsheets), so all fields are raw per-step values
 — compute cumulative sums / hit rates downstream.
 
-Only the aggregate ("Tier A") stats are available through this hook; per-block /
+Only the aggregate stats are available through this hook; per-block /
 per-request KV detail is not forwarded here.
 
 Configuration (environment variables):
