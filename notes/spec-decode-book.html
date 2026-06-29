@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speculative Decoding — 一個觀念,完整追到程式碼</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --ink:#e6edf3; --mut:#9aa7b4;
+    --line:#2b333d; --acc:#58a6ff; --grn:#7ee787; --amb:#f0b429; --pink:#ff7b9c; --viol:#c8a2ff;
+    --code:#0b0f14; --pill:#21303f; --shadow:0 6px 24px rgba(0,0,0,.35); --maxw:980px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.62 "PingFang TC","Microsoft JhengHei","Noto Sans TC",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  code,pre,.mono{font-family:"SF Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  .layout{display:grid;grid-template-columns:268px 1fr;min-height:100vh}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;
+    border-right:1px solid var(--line);background:#0b0e13;padding:22px 14px}
+  nav.toc h1{font-size:15px;margin:0 0 3px} nav.toc .sub{color:var(--mut);font-size:12px;margin-bottom:16px;line-height:1.4}
+  nav.toc a{display:block;color:var(--mut);padding:5px 10px;border-radius:7px;font-size:13.5px}
+  nav.toc a:hover{background:var(--panel);color:var(--ink);text-decoration:none}
+  nav.toc a.active{background:var(--pill);color:var(--ink)}
+  main{max-width:var(--maxw);margin:0 auto;padding:44px 32px 120px;width:100%}
+  section{scroll-margin-top:18px;padding-top:24px}
+  h2{font-size:26px;margin:8px 0 2px;line-height:1.25}
+  h3{font-size:19px;margin:30px 0 6px}
+  h4{font-size:15.5px;margin:18px 0 4px}
+  .ch{color:var(--acc);font-size:12.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase}
+  p{margin:10px 0} .mut{color:var(--mut)}
+  .hr{height:1px;background:var(--line);margin:34px 0;border:0}
+  ul,ol{margin:10px 0;padding-left:22px} li{margin:5px 0}
+  .lead{font-size:17.5px;line-height:1.62;background:linear-gradient(90deg,rgba(88,166,255,.10),rgba(88,166,255,0));
+    border-left:3px solid var(--acc);padding:14px 18px;border-radius:0 10px 10px 0;color:#dce6f0;margin:14px 0 6px}
+  .lead b{color:#fff}
+  .src{display:inline-flex;align-items:center;gap:5px;background:var(--pill);border:1px solid #2c3e50;
+    color:#9fd0ff;border-radius:6px;padding:1px 7px;font:600 11.5px/1.6 "SF Mono",ui-monospace,monospace;
+    white-space:nowrap;vertical-align:baseline;cursor:default}
+  .src:hover{background:#243748;border-color:var(--acc)}
+  .src::before{content:"\1F517";font-size:10px;opacity:.7}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:13px 15px;overflow:auto;
+    font-size:13px;line-height:1.55;margin:12px 0}
+  pre .c{color:#6e7a87} pre .k{color:#ff7b9c} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff}
+  pre .n{color:#79c0ff} pre .g{color:#7ee787}
+  p code,li code,td code,summary code{background:#1b222b;border:1px solid #28313c;border-radius:5px;
+    padding:.5px 5px;font-size:13px;color:#cdd9e5}
+  .note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--grn);
+    border-radius:0 10px 10px 0;padding:12px 16px;margin:16px 0}
+  .note.warn{border-left-color:var(--amb)} .note.info{border-left-color:var(--acc)}
+  .note .t{font-weight:700;font-size:12.5px;letter-spacing:.4px;color:var(--grn);margin-bottom:3px}
+  .note.warn .t{color:var(--amb)} .note.info .t{color:var(--acc)}
+  details{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}
+  details>summary{cursor:pointer;padding:10px 16px;font-weight:600;font-size:14px;list-style:none;
+    display:flex;align-items:center;gap:9px;user-select:none}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::before{content:"\25B6";color:var(--acc);font-size:10px;transition:transform .15s}
+  details[open]>summary::before{transform:rotate(90deg)}
+  details>summary:hover{background:var(--panel2)}
+  details .body{padding:4px 18px 16px;border-top:1px solid var(--line)}
+  table{border-collapse:collapse;width:100%;margin:13px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:7px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);font-size:12px;letter-spacing:.4px;color:var(--mut)}
+  tr:nth-child(even) td{background:rgba(255,255,255,.012)}
+  /* color legend chips */
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+  .lg{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);
+    border-radius:9px;padding:6px 12px;font-size:13px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .d-prop{background:var(--acc)} .d-ver{background:var(--amb)} .d-acc{background:var(--grn)}
+  .d-rej{background:var(--pink)} .d-bonus{background:var(--viol)}
+  /* step-through */
+  .steps{counter-reset:s;margin:18px 0}
+  .step{display:grid;grid-template-columns:34px 1fr;gap:14px;margin-bottom:4px;position:relative}
+  .step .num{width:34px;height:34px;border-radius:50%;background:var(--pill);border:1px solid var(--acc);
+    color:#cfe6ff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:2}
+  .step .sbody{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 15px;margin-bottom:14px}
+  .step:not(:last-child)::before{content:"";position:absolute;left:17px;top:34px;bottom:-6px;width:2px;background:var(--line)}
+  .step .h{font-weight:700;font-size:14.5px;margin-bottom:4px}
+  .tag{display:inline-block;font:700 10.5px/1.5 "SF Mono",monospace;letter-spacing:.5px;text-transform:uppercase;
+    padding:1px 7px;border-radius:5px;margin-right:7px;vertical-align:middle}
+  .t-prop{background:#0f2b40;color:#79c0ff} .t-ver{background:#3a2c10;color:var(--amb)}
+  .t-acc{background:#16341f;color:var(--grn)} .t-feed{background:#2c2150;color:var(--viol)}
+  /* ====== accept simulator (Ch3) ====== */
+  .sim{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0}
+  .simbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{background:var(--panel);color:var(--mut);border:0;padding:6px 14px;font:600 13px/1 inherit;cursor:pointer}
+  .seg button.on{background:var(--pill);color:#fff}
+  .simhint{font-size:12.5px;color:var(--mut)}
+  .toks{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+  .tok{min-width:84px;border:1px solid var(--line);border-radius:11px;background:var(--panel);
+    padding:9px 12px;cursor:pointer;text-align:center;transition:.12s;position:relative}
+  .tok:hover{border-color:var(--acc);transform:translateY(-2px)}
+  .tok .pos{font:700 10px/1.4 "SF Mono",monospace;color:var(--mut);letter-spacing:.5px}
+  .tok .w{font-size:15px;font-weight:700;margin:2px 0;font-family:"SF Mono",monospace}
+  .tok .v{font-size:11.5px;font-weight:700}
+  .tok.agree{border-color:#2a543a;background:#12271b} .tok.agree .v{color:var(--grn)}
+  .tok.disagree{border-color:#6b2742;background:#2b1622} .tok.disagree .v{color:var(--pink)}
+  .arrow{text-align:center;color:var(--mut);font-size:20px;margin:2px 0}
+  .out{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+  .ochip{border-radius:9px;padding:8px 13px;font:700 14px/1.2 "SF Mono",monospace;border:1px solid var(--line)}
+  .ochip.acc{background:#12271b;border-color:#2a543a;color:#bff0cd}
+  .ochip.rej{background:#2b1622;border-color:#6b2742;color:#ffb3c6}
+  .ochip.bonus{background:#221a38;border-color:#7a5cc4;color:#e0ccff}
+  .ochip.drop{background:#10151b;border-color:#222b35;color:#4d5862;text-decoration:line-through}
+  .ochip .sub{display:block;font:600 9.5px/1.4 sans-serif;letter-spacing:.4px;margin-top:2px;opacity:.85}
+  #simVerdict{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 15px;margin-top:14px;font-size:13.5px;line-height:1.6}
+  #simVerdict b{color:#fff}
+  /* ====== why-guess visualizer (Ch1) ====== */
+  .vizrow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:8px 0}
+  .fbox{border-radius:9px;padding:9px 13px;font-size:13px;font-weight:600;border:1px solid var(--line);text-align:center}
+  .fbox.big{background:#3a2c10;border-color:#5a4a16;color:var(--amb)}
+  .fbox.draft{background:#0f2b40;border-color:#1d456b;color:#79c0ff}
+  .fbox.tok{background:#12271b;border-color:#2a543a;color:#bff0cd;font-family:"SF Mono",monospace}
+  .fbox.draftmini{padding:4px 9px;font-size:11.5px;background:#0f2b40;border-color:#1d456b;color:#79c0ff}
+  .dgroup{border:1px dashed #1d456b;border-radius:11px;padding:8px 10px;background:#0c1a28}
+  .dgroup .dchain{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+  .gtok{font:600 11px/1 "SF Mono",ui-monospace,monospace;color:#9fd0ff;background:#11212f;border:1px solid #1d456b;border-radius:5px;padding:4px 6px}
+  .dbracket{font-size:11px;color:var(--mut);margin-top:7px;text-align:center}
+  .fsep{color:#46525f;font-size:16px}
+  .vizcap{font-size:13px;color:var(--mut);margin-top:10px;line-height:1.55}
+  /* ====== methods map (Ch4) ====== */
+  .mchips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+  .mchip{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:6px 15px;
+    font:600 13.5px/1.5 "SF Mono",monospace;cursor:pointer;color:var(--mut);transition:.12s}
+  .mchip:hover{border-color:var(--acc);color:var(--ink)}
+  .mchip.on{background:var(--pill);color:#fff;border-color:var(--acc);box-shadow:var(--shadow)}
+  #methodCard{background:var(--panel2);border:1px solid var(--line);border-radius:13px;margin:12px 0;overflow:hidden}
+  #methodCard .hd{padding:13px 18px;background:#13202f;border-bottom:1px solid var(--line)}
+  #methodCard .hd .ttl{font-size:17px;font-weight:700}
+  #methodCard .hd .tl{font-size:13px;color:var(--mut);margin-top:2px}
+  #methodCard .bd{padding:14px 18px}
+  .mgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+  @media(max-width:760px){.mgrid{grid-template-columns:1fr} .layout{grid-template-columns:1fr} nav.toc{display:none}}
+  .mgrid>div{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 12px}
+  .mgrid .k{font-size:10.5px;letter-spacing:.5px;color:var(--mut);font-weight:700;text-transform:uppercase}
+  .mgrid .val{font-size:14px;margin-top:2px}
+  .mfiles{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  /* ====== eagle chain (Ch5) ====== */
+  .chain{display:flex;align-items:stretch;flex-wrap:wrap;gap:8px;margin:16px 0}
+  .cnode{flex:1;min-width:130px;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:var(--panel)}
+  .cnode .ct{font:700 11px/1.4 "SF Mono",monospace;letter-spacing:.4px;color:var(--acc);text-transform:uppercase}
+  .cnode .cd{font-size:13px;margin-top:4px;line-height:1.45}
+  .cnode.feat{border-color:#3a2c10;background:#1c1808}
+  .cnode.draft{border-color:#1d456b;background:#0f1f30}
+  .cnode.rec{border-color:#2c2150;background:#191334}
+  .carr{display:flex;align-items:center;color:#46525f;font-size:18px;padding:0 2px}
+  .e3box{border:1px dashed var(--viol);border-radius:11px;background:#191334;padding:10px 13px;margin:10px 0;font-size:13.5px;display:none}
+  .e3box.show{display:block}
+  /* ====== decay bars (Ch6) ====== */
+  .bars{display:flex;align-items:flex-end;gap:18px;height:190px;margin:18px 0 8px;padding:0 6px}
+  .bcol2{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .bar{width:100%;max-width:90px;background:linear-gradient(180deg,var(--grn),#2a543a);border-radius:7px 7px 0 0;
+    position:relative;transition:height .25s;min-height:3px}
+  .bar .pct{position:absolute;top:-22px;left:0;right:0;text-align:center;font:700 13px/1 "SF Mono",monospace;color:#bff0cd}
+  .bcol2 .lab{margin-top:8px;font:600 11.5px/1.4 "SF Mono",monospace;color:var(--mut);text-align:center}
+  .bcol2.proj .bar{background:linear-gradient(180deg,#4d5862,#2b333d);opacity:.7}
+  .bcol2.proj .bar .pct{color:#9aa7b4}
+  .alreadout{display:flex;gap:22px;flex-wrap:wrap;margin:14px 0;align-items:center}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 16px}
+  .stat .v{font:800 24px/1 "SF Mono",monospace;color:var(--grn)} .stat .k{font-size:12px;color:var(--mut);margin-top:4px}
+  .slider{display:flex;align-items:center;gap:12px;margin:14px 0}
+  .slider input{flex:1} .slider .lab{font:600 13px/1 "SF Mono",monospace;color:#cfe6ff;min-width:130px}
+  footer{max-width:var(--maxw);margin:0 auto;padding:28px 32px 80px;color:var(--mut);font-size:13px;border-top:1px solid var(--line)}
+  .glossary dt{font-weight:700;font-family:"SF Mono",monospace;color:#cfe6ff;margin-top:12px}
+  .glossary dd{margin:2px 0 0;color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" id="toc">
+  <h1>Speculative Decoding</h1>
+  <div class="sub">一個觀念,完整追到 vLLM 程式碼</div>
+  <a href="#intro">前言 · 一個觀念</a>
+  <a href="#why">1 · 為什麼要「猜」?</a>
+  <a href="#loop">2 · 一個 step,從頭到尾</a>
+  <a href="#accept">3 · 接受判定:為什麼無損</a>
+  <a href="#methods">4 · 草稿從哪來:六種方法</a>
+  <a href="#eagle">5 · EAGLE 深入</a>
+  <a href="#metrics">6 · 它有沒有賺?</a>
+  <a href="#config">7 · 怎麼開啟</a>
+  <a href="#glossary">詞彙表</a>
+  <a href="#colophon">如何驗證本書</a>
+</nav>
+<main>
+
+<!-- ============ PREFACE ============ -->
+<section id="intro">
+  <div class="ch">前言</div>
+  <h2>一個觀念</h2>
+  <div class="lead">
+    LLM 一次只能吐一個 token,而且每吐一個都要把整顆大模型跑一遍——慢的不是「算」,是「搬權重」。
+    <b>推測解碼讓一個便宜的「草稿者」先猜未來好幾個 token,再讓大模型用「一次」forward 把這些猜測全部驗證掉</b>;
+    猜對的就一次收下好幾個,猜錯的丟掉。最關鍵的是:<b>最後輸出的文字分佈,和大模型自己一個一個生出來的一模一樣——數學上無損。</b>
+  </div>
+  <p>整本書都掛在這一句話上:</p>
+  <p style="font-size:18px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0">
+    猜得便宜 <span style="color:var(--acc)">①&nbsp;Propose</span> →
+    一次驗證 <span style="color:var(--amb)">②&nbsp;Verify</span> →
+    只留下 target 同意的前綴 <span style="color:var(--grn)">③&nbsp;Accept</span>,而且可<b>證明無損</b>。
+  </p>
+  <p>整個系統就是這三拍的迴圈。全書用同一套顏色詞彙,在每張圖、每個元件都代表同一件事:</p>
+  <div class="legend">
+    <div class="lg"><span class="dot d-prop"></span><b>Propose</b> · 草稿者(drafter)便宜地猜 K 個 token</div>
+    <div class="lg"><span class="dot d-ver"></span><b>Verify</b> · 目標模型(target)一次 forward 跑完所有草稿位置</div>
+    <div class="lg"><span class="dot d-acc"></span><b>Accept</b> · target 同意、收下的 token</div>
+    <div class="lg"><span class="dot d-rej"></span><b>Reject</b> · 第一個不同意處,丟棄並用 target 取代</div>
+    <div class="lg"><span class="dot d-bonus"></span><b>Bonus</b> · 全部接受時,額外多送一個 token</div>
+  </div>
+  <div class="note info"><div class="t">關於這本書</div>
+    這本書解釋的是<b>你這個 vLLM fork</b>(<code>/home/alex/vllm</code>)的實作。每個論述後面的
+    <span class="src">檔案:行號</span> 就是回到原始碼查證的捷徑——polished 的解釋不能取代驗證。
+    行號可能隨 commit 漂移;對不上時,搜尋指名的符號即可。
+  </div>
+</section>
+<hr class="hr">
+
+<!-- ============ 1 WHY GUESS ============ -->
+<section id="why">
+  <div class="ch">第 1 章</div>
+  <h2>為什麼要「猜」,而不是直接算?</h2>
+  <div class="lead">「直接算」n 個字,意思就是<b>讓大模型一個接一個算 n 次</b>——而這正是我們想避開的那件慢事。
+    推測解碼的全部把戲,就是用一個便宜的東西「猜」,把 <b>n 次大模型的序列計算,換成 1 次大模型的平行驗證</b>。</div>
+
+  <h3>為什麼不能一次算出 n 個字</h3>
+  <p>關鍵在於 LLM 的定義方式:它算的是「<b>給定前面所有字,下一個字是什麼</b>」,也就是
+    <code>P(下一個字 | 前面的字)</code>。問題來了——</p>
+  <pre>算 t+1   需要 → [1..t]               <span class="g">✅ 有</span>
+算 t+2   需要 → [1..t, <span class="k">t+1</span>]          <span class="k">❌ t+1 還沒生出來</span>
+算 t+3   需要 → [1..t, <span class="k">t+1, t+2</span>]     <span class="k">❌ 連環缺</span></pre>
+  <p>這是一條<b>因果鎖鏈</b>:第 k 個字是算第 k+1 個字的<em>輸入</em>。所以你無法「一次直接算出」n 個字——
+    必須 算一個 → 餵回去 → 再算下一個,天生是序列的。「直接算 n 個」= 跑 n 次大模型,這就是普通解碼,也就是慢的本體。</p>
+
+  <details><summary>這條鎖鏈有個名字:<b>自迴歸</b>(autoregressive)</summary><div class="body">
+    <p><b>自</b>(auto)= 自己;<b>迴歸</b>(regressive)= 根據過去的值預測下一個。合起來就是:
+      <b>模型把自己剛產生的輸出,當成下一步的輸入,一個接一個地往下生。</b>(這個詞本來是統計學講時間序列的,LLM 借用了它。)</p>
+    <pre>"今天天氣"        → 輸出 → "很"
+"今天天氣<span class="g">很</span>"      → 輸出 → "好"    <span class="c"># 把上一步的「很」接回去了</span>
+"今天天氣很<span class="g">好</span>"    → 輸出 → "。"    <span class="c"># 又把「好」接回去</span></pre>
+    <p>每一步的輸入 = 原句 + 模型自己到目前為止生出來的所有字。<b>target 大模型是自迴歸的</b>,
+      這就是生成天生序列、無法一次算完 n 個的原因。大多數草稿方法(EAGLE / MTP / draft_model)也是自迴歸的;
+      <b>Medusa 不是</b>——它的頭彼此不互餵,一次出 n 個。</p>
+  </div></details>
+
+  <h3>那為什麼「猜」反而快?</h3>
+  <p>兩個事實湊在一起:</p>
+  <ol>
+    <li><b>大模型一次 forward,其實能同時算出「每個位置」的下一字機率——前提是那些位置的字你已經有了。</b>
+      訓練、以及處理 prompt(prefill)時就是這樣平行算的。卡住生成的不是「算」,而是「未來的字還沒有,沒法當輸入」。</li>
+    <li><b>解碼是記憶體頻寬瓶頸,不是算力瓶頸。</b>batch 很小時,一次 forward 的時間幾乎全花在「把幾十 GB 權重從 HBM 搬一遍」,
+      真正算一個 token 只用到 GPU 一丁點算力。所以<b>算 1 個 token 和算 n 個 token,牆鐘時間幾乎一樣</b>(都只搬一次權重)。</li>
+  </ol>
+  <p>於是訣竅出來了:讓便宜的草稿者先猜出 <code>g₁ g₂ … gₙ</code>,把猜測<b>填進輸入</b>;現在每個位置都「有字了」,
+    大模型就能用<b>一次</b> forward 平行算出這 n 個位置的正確機率,再核對哪些猜中。切換下面看這兩條路徑的差別:</p>
+
+  <div class="sim">
+    <div class="simbar">
+      <div class="seg" id="whySeg">
+        <button data-m="serial" class="on">直接算(序列)</button>
+        <button data-m="spec">推測解碼(猜 + 驗證)</button>
+      </div>
+      <div class="simhint">同樣產出 4 個 token,大模型被呼叫的次數差很多。</div>
+    </div>
+    <div id="whyViz"></div>
+  </div>
+
+  <h3>等等——草稿不也是「一個一個」猜?</h3>
+  <p>對,大多數草稿方法確實也是<b>自迴歸</b>的,只是跑在便宜的小模型上。哪些「一次出 n 個」、哪些「一個接一個」,要看方法:</p>
+  <table>
+    <tr><th>方法</th><th>怎麼產 n 個草稿</th><th>一次嗎?</th></tr>
+    <tr><td>EAGLE / EAGLE3 / MTP / draft_model</td><td>用便宜的 draft 模型一個接一個猜:跑一次 → 草稿₀ → 餵回去 → 再跑 → 草稿₁ → …</td><td><b style="color:var(--pink)">不是</b>,自迴歸 n 次</td></tr>
+    <tr><td>Medusa</td><td>n 個預測頭在同一次 forward 各猜一個未來位置</td><td><b style="color:var(--grn)">是</b>,一次</td></tr>
+    <tr><td>n-gram</td><td>從前文找到重複片段,把後面接的 k 個字抄過來(查表)</td><td><b style="color:var(--grn)">是</b>,一次</td></tr>
+  </table>
+  <p class="mut" style="font-size:13px">完整六種方法的對照(含「是不是自迴歸」欄)在<a href="#methods">第 4 章</a>;EAGLE 的逐步鏈畫在<a href="#eagle">第 5 章</a>。</p>
+
+  <div class="note warn"><div class="t">重點釐清:序列本身不是問題</div>
+    你可能會問:「咦,你不是說『序列地算』就是慢的根源嗎?EAGLE 不也是序列?」——關鍵在這:
+    <b>序列本身不是問題;序列地跑「昂貴的大模型」才是問題。</b>
+    推測解碼把那條序列鎖鏈搬到了<b>便宜的 draft 模型</b>上;昂貴的 target 在整個過程只跑<b>一次</b>(平行驗證全部 n 個位置)。
+  </div>
+  <pre><span class="c"># 都產出 ~n 個 token</span>
+普通解碼:   n 次 × <span class="k">昂貴 target forward</span>
+推測解碼:   n 次 × <span class="n">便宜 draft forward</span>  +  1 次 × <span class="k">昂貴 target forward</span>
+            └─ 序列,但很便宜 ─┘             └─ 平行,只一次 ─┘</pre>
+  <p>draft 模型很小(EAGLE 常常只有 1 層,還重用 target 的 hidden state),所以那幾次便宜的 forward,
+    遠小於省下的 (n−1) 次昂貴 target forward——這就是淨賺的地方。也因為 draft 仍要做這些序列工作,
+    所以「draft 太大」或「n 太大」會吃掉收益(<a href="#metrics">第 6 章</a>的取捨)。</p>
+
+  <h3>「讓大模型自己一口氣吐 n 個」不行嗎?</h3>
+  <p>可以,而且真的有人這樣做——這正是 <b>Medusa</b>(多接幾個預測頭)和 <b>MTP</b>(checkpoint 內附的多 token 預測層,見<a href="#methods">第 4 章</a>)。
+    但它們在「還不知道第 t+1 個字」的情況下去預測第 t+2 個字,<b>數學上必然是近似的</b>(等於對未知的 t+1 取了某種平均)。
+    所以它們吐出來的 n 個字,<b>本質上仍是「猜」</b>,而不是精確值。</p>
+  <p>這就是為什麼:<b>無論草稿從哪來(獨立小模型、額外的頭、還是查表),它都只是 drafter,都還得經過驗證</b>——
+    這樣才能保住「輸出分佈和大模型自己慢慢算的一模一樣」的<a href="#accept">無損保證</a>。</p>
+
+  <div class="note info"><div class="t">一句話</div>
+    不是「不直接算」,而是<b>「直接算」=「序列跑 n 次大模型」就是慢的根源</b>。
+    猜測 + 平行驗證,是用便宜的近似換掉昂貴的序列依賴,再用驗證把精確性補回來。
+  </div>
+
+  <p>所以加速的上限,就是「平均每次 target forward 能吐出幾個 token」——這個數字叫
+    <b>acceptance length(接受長度)</b>,是<a href="#metrics">第 6 章</a>的主角。它也解釋了為什麼推測解碼
+    <em>不會憑空變快</em>:草稿者若猜得太爛,接受率低,反而白付了草稿成本。</p>
+</section>
+<hr class="hr">
+
+<!-- ============ 2 THE LOOP ============ -->
+<section id="loop">
+  <div class="ch">第 2 章</div>
+  <h2>一個 step,從頭到尾</h2>
+  <div class="lead">在 vLLM 裡,一個 engine step 走五拍:把上一步的草稿重新注入 → target 一次 forward →
+    rejection sampler 接受前綴 → drafter 立刻提議下一批 → 寫回 request。這五拍就是執行期的骨架。</div>
+  <p>主路徑在 <span class="src">vllm/v1/worker/gpu_model_runner.py</span>,排程在
+    <span class="src">vllm/v1/core/sched/scheduler.py</span>。每一步都標了它在原始碼的位置:</p>
+
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div class="sbody">
+      <div class="h"><span class="tag t-feed">SCHEDULE</span>重新注入上一步的草稿</div>
+      <code>scheduler.schedule()</code> 把上一步提議、存在 <code>request.spec_token_ids</code> 上的草稿
+      掛到這一步的 <code>scheduled_spec_decode_tokens</code>。
+      <div style="margin-top:7px"><span class="src">scheduler.py:1716 update_draft_token_ids</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">2</div><div class="sbody">
+      <div class="h"><span class="tag t-ver">VERIFY</span>target 一次 forward 跑完所有草稿位置</div>
+      把 <code>[已確定token, 草稿₁, 草稿₂, …, 草稿K]</code> 一起餵進 target,一次得到每個位置的 logits。
+      索引佈局(哪些 slot 用來驗證草稿、哪一個是 bonus)由 <code>_calc_spec_decode_metadata</code> 算好——
+      它的註解裡有完整的數字範例。
+      <div style="margin-top:7px"><span class="src">gpu_model_runner.py:2730 _calc_spec_decode_metadata</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">3</div><div class="sbody">
+      <div class="h"><span class="tag t-acc">ACCEPT</span>RejectionSampler 接受同意的前綴</div>
+      從左到右逐一檢查草稿;第一個不同意處截斷,後面整批標成 <code>-1</code>;若全部接受,補一個 bonus token。
+      這就是<a href="#accept">第 3 章</a>的主題。
+      <div style="margin-top:7px">
+        <span class="src">vllm/v1/sample/rejection_sampler.py:88 forward</span>
+        <span class="src" style="margin-left:6px">gpu_model_runner.py:1513 數非 -1 = 接受長度</span>
+      </div>
+    </div></div>
+
+    <div class="step"><div class="num">4</div><div class="sbody">
+      <div class="h"><span class="tag t-prop">PROPOSE</span>drafter 立刻提議下一批草稿</div>
+      用「剛接受的新 token」當條件,drafter 產生下一批 K 個草稿(EAGLE 的細節見<a href="#eagle">第 5 章</a>)。
+      <div style="margin-top:7px"><span class="src">vllm/v1/spec_decode/llm_base_proposer.py:434 propose</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">5</div><div class="sbody">
+      <div class="h"><span class="tag t-feed">FEEDBACK</span>寫回 request,閉合迴圈</div>
+      新草稿被搬回 CPU,engine core 的 <code>post_step</code> 呼叫 <code>scheduler.update_draft_token_ids</code>
+      寫回 <code>request.spec_token_ids</code>——下一個 <code>schedule()</code> 就會把它再注入,回到第 1 步。
+      <div style="margin-top:7px"><span class="src">vllm/v1/engine/core.py post_step</span></div>
+    </div></div>
+  </div>
+
+  <div class="note warn"><div class="t">fork 特有的陷阱</div>
+    這個 fork 把 step 拆成兩段做 async scheduling:<code>execute_model</code>(跑 target forward)和
+    <code>sample_tokens</code>(驗證 + 接受 + 提議下一批)。別想在同一個 function 裡找到完整流程。
+  </div>
+</section>
+<hr class="hr">
+
+<!-- ============ 3 ACCEPT / LOSSLESS ============ -->
+<section id="accept">
+  <div class="ch">第 3 章 · 互動</div>
+  <h2>接受判定:為什麼無損</h2>
+  <div class="lead">這是推測解碼最反直覺、也最重要的一點:<b>用一個爛草稿者不會讓輸出變差,只會讓它變慢。</b>
+    下面這個模擬器讓你親手試:點每個草稿 token 切換「target 同不同意」,看最終吐出什麼。</div>
+
+  <div class="sim">
+    <div class="simbar">
+      <div class="seg" id="modeSeg">
+        <button data-mode="random" class="on">隨機採樣(temperature&gt;0)</button>
+        <button data-mode="greedy">Greedy(temperature=0)</button>
+      </div>
+      <div class="simhint">點 token 切換 target 是否同意。第一個不同意處之後,全部丟棄。</div>
+    </div>
+    <div class="toks" id="simToks"></div>
+    <div class="arrow">↓ target 只跑了 1 次 forward,卻產出了 ↓</div>
+    <div class="out" id="simOut"></div>
+    <div id="simVerdict"></div>
+  </div>
+
+  <h3>它在背後做的事(數學)</h3>
+  <p>設草稿者對某 token 的機率是 <code>q(x)</code>,target 是 <code>p(x)</code>。隨機採樣模式下:</p>
+  <ol>
+    <li><b>接受</b>該草稿的機率 = <code>min(1, p(x)/q(x))</code>。程式碼直接是這條比值測試:
+      <div style="margin:6px 0"><span class="src">rejection_sampler.py:817&nbsp;&nbsp;accepted = draft_prob &gt; 0 and target_prob / draft_prob &gt;= uniform_prob</span></div></li>
+    <li><b>被拒</b>時,從「殘差分佈」<code>p_res(x) ∝ max(p(x) − q(x), 0)</code> 重新採一個取代 token:
+      <div style="margin:6px 0"><span class="src">rejection_sampler.py:914&nbsp;&nbsp;prob = max(target_prob − draft_prob, 0)</span></div></li>
+    <li><b>全部接受</b>時,額外補一個直接從 target 採的 bonus token:
+      <div style="margin:6px 0"><span class="src">rejection_sampler.py:827 / :760&nbsp;&nbsp;if not rejected: 寫入 bonus</span></div></li>
+  </ol>
+
+  <details><summary>為什麼這樣就「無損」?(展開看一行證明)</summary>
+    <div class="body">
+      <p>某 token <code>x</code> 被輸出的總機率,是「接受它」加上「先拒絕別的、再從殘差抽到它」:</p>
+      <pre>P(輸出 x) = <span class="g">q(x)·min(1, p/q)</span> + <span class="k">P(拒絕)·p_res(x)</span>
+         = <span class="g">min(p(x), q(x))</span>     + <span class="k">max(p(x) − q(x), 0)</span>
+         = p(x)                               <span class="c"># ← 恰好是 target 分佈,與 q 無關</span></pre>
+      <p>所以每個輸出 token 的邊際分佈<b>恰好等於 target 的 <code>p</code></b>,跟草稿品質 <code>q</code> 完全無關。
+        這就是 Leviathan 等人的推測採樣演算法,程式碼在類別 docstring 直接引用:</p>
+      <div><span class="src">rejection_sampler.py:40&nbsp;&nbsp;https://arxiv.org/abs/2211.17192</span></div>
+    </div>
+  </details>
+
+  <details><summary>Greedy(temperature=0)走另一條確定性捷徑</summary>
+    <div class="body">
+      <p>不擲骰子、不採殘差:接受 ⟺ 草稿 token <b>等於</b> target 的 argmax;否則直接放 argmax。
+        所以 greedy 路徑連殘差採樣都不會呼叫。</p>
+      <div><span class="src">rejection_sampler.py:748-752&nbsp;&nbsp;token_id = target_argmax_id; rejected = draft_token_id != target_argmax_id</span></div>
+    </div>
+  </details>
+
+  <div class="note warn"><div class="t">對抗式驗證:confirmed,但有兩個前提</div>
+    我派了一個 agent 專門去「反駁」這個無損主張,結論是成立,但必須講清楚兩點:
+    <ul style="margin:6px 0">
+      <li><b>「無損」是相對於「套用 temperature / top-k / top-p 之後」的 target 分佈</b>,不是 raw logits——
+        這些約束在 softmax 前就套好了(<span class="src">rejection_sampler.py:510 apply_sampling_constraints</span>)。</li>
+      <li>有一個非預設的 <code>synthetic</code> 模式(<span class="src">config/speculative.py:191</span>)會用固定接受率、無視真實機率——
+        <b>那條路徑不是無損的</b>,但它是 opt-in 的 benchmarking 開關,正式預設是 <code>standard</code>。</li>
+    </ul>
+  </div>
+  <p class="mut" style="font-size:13px">小細節:<code>-1</code> 是哨兵值——接受的 token 從 index 0 連續排好,第一個 <code>-1</code> 就是第一個拒絕點,
+    所以「數有幾個非 -1」就是接受長度(<span class="src">gpu_model_runner.py:1513</span>)。ngram 這種沒有 draft 機率的方法,把 <code>q</code> 視為 1,接受準則退化成 <code>p(x) ≥ u</code>。</p>
+</section>
+<hr class="hr">
+
+<!-- ============ 4 METHODS ============ -->
+<section id="methods">
+  <div class="ch">第 4 章 · 互動</div>
+  <h2>草稿從哪來:六種方法</h2>
+  <div class="lead">所有方法在 <span class="src">gpu_model_runner.py:545-616</span> 由一個 dispatcher 依
+    <code>speculative_config.method</code> 選一個 Proposer。關鍵區分軸:<b>要不要獨立模型 · 用不用 target 的 hidden state · 是不是自迴歸</b>。
+    點下面任一方法看它怎麼運作。</div>
+  <div class="mchips" id="mchips"></div>
+  <div id="methodCard"></div>
+  <p class="mut" style="font-size:13px">分辨訣竅:<code>pass_hidden_states_to_model=True</code> 的(EAGLE / EAGLE3 / MTP)都吃 target 的 hidden state;
+    只有 <code>draft_model</code> 是 <code>False</code>——它跑自己完整的 forward(<span class="src">draft_model.py:27</span> vs <span class="src">eagle.py:20</span>)。</p>
+</section>
+<hr class="hr">
+
+<!-- ============ 5 EAGLE ============ -->
+<section id="eagle">
+  <div class="ch">第 5 章 · 互動</div>
+  <h2>EAGLE 深入</h2>
+  <div class="lead">EAGLE 是目前最常用的方法。訣竅:draft head 不從零開始,它<b>重用 target 的內部 hidden state</b>
+    (target 對上一個 token 的「想法」)加上下一個 token 的 embedding,從這裡便宜地一個接一個猜出多個 token。</div>
+
+  <div class="simbar" style="margin:10px 0">
+    <div class="seg" id="eagleSeg">
+      <button data-e="1" class="on">EAGLE</button>
+      <button data-e="3">EAGLE3</button>
+    </div>
+    <div class="simhint">切換看 EAGLE3 多了哪一步。</div>
+  </div>
+
+  <div class="e3box" id="e3box">
+    <b style="color:var(--viol)">EAGLE3 多的這一步:</b> 先把 target <b>多層</b>(預設 layer <code>2, n/2, n−3</code>)的 hidden state
+    串接後用 <code>combine_hidden_states()</code> 融合降維,才開始猜;而且它有自己較小的 draft 詞表,再用 <code>d2t</code> 映射表 scatter 回 target 全詞表。
+    <div style="margin-top:7px">
+      <span class="src">llm_base_proposer.py:456 method in ("eagle3","dflash")</span>
+      <span class="src" style="margin-left:6px">llama_eagle3.py:378 combine_hidden_states</span>
+    </div>
+  </div>
+
+  <div class="chain" id="eagleChain"></div>
+
+  <div class="note"><div class="t">這個迴圈最容易誤解的一點</div>
+    <code>combine_hidden_states</code>(融合 target 多層特徵)<b>只在第一步做</b>。在自迴歸迴圈裡,draft head 吃的是
+    <b>它自己上一步輸出的 hidden state</b>(<span class="src">llm_base_proposer.py:604</span>)——所以 target 的特徵只直接影響第一個草稿 token,
+    後面是 draft head 純粹的遞迴。
+  </div>
+  <details><summary>兩個值得知道的工程細節</summary><div class="body">
+    <ul>
+      <li>這個 fork 的 EAGLE 產生的是<b>線性 chain</b>(一條 <code>[batch, K]</code>),不是 tree;tree 介面存在但這條路徑沒用上。</li>
+      <li>草稿 token 在餵回前會 cast 成 <code>int32</code>(<span class="src">llm_base_proposer.py:581</span>),因為 argmax 出來是 int64 會弄壞編譯後的 draft model。</li>
+      <li>EAGLE1 的融合是 <code>fc(cat(input_embeds, hidden_states))</code>,fc 輸入維度 = <code>2×hidden_size</code>(<span class="src">llama_eagle.py:107</span>)。</li>
+    </ul>
+  </div></details>
+</section>
+<hr class="hr">
+
+<!-- ============ 6 METRICS ============ -->
+<section id="metrics">
+  <div class="ch">第 6 章 · 互動</div>
+  <h2>它有沒有賺?</h2>
+  <div class="lead">效果由 <b>acceptance length(接受長度)</b> 衡量,它基本上<b>就是加速倍率</b>:平均每次昂貴的 target forward 吐出幾個 token。
+    普通解碼恆為 1。</div>
+  <p>公式很直接(<span class="src">vllm/v1/spec_decode/metrics.py:95</span>):</p>
+  <pre>mean_acceptance_length = <span class="n">1</span> + (num_accepted_tokens / num_drafts)
+                          <span class="c">↑ 這個 +1 是「全接受時的 bonus token」;scheduler 先把它從接受數扣掉(scheduler.py:1398)</span></pre>
+
+  <h3>但接受率會隨位置衰減</h3>
+  <p>下面是真實的 baseline(llama3-8b + EAGLE3,取自 <span class="src">tests/v1/spec_decode/test_acceptance_length.py</span>):
+    越往後的草稿越難被接受。拖動滑桿,看「猜更多」如何邊際遞減。</p>
+
+  <div class="slider">
+    <span class="lab">num_speculative_tokens = <b id="kVal">3</b></span>
+    <input type="range" id="kSlider" min="1" max="7" value="3" step="1">
+  </div>
+  <div class="bars" id="decayBars"></div>
+  <div class="alreadout">
+    <div class="stat"><div class="v" id="alVal">2.60</div><div class="k">acceptance length(≈ 加速上限)</div></div>
+    <div class="stat"><div class="v" id="accVal">1.60</div><div class="k">平均接受的草稿數 / step</div></div>
+  </div>
+  <p class="mut" style="font-size:13px">前 3 根是實測值;第 4 根起是<b>示意外推</b>(假設每位置再乘 ~0.68 衰減),用來看曲線變平、邊際遞減的形狀,並非實測。</p>
+
+  <div class="note warn"><div class="t">核心取捨</div>
+    <code>num_speculative_tokens</code> 猜越多,<b>無論接不接受都要付草稿與驗證成本</b>;但後面位置接受率低 → 邊際遞減。
+    草稿太差或猜太長,推測解碼可能反而變慢。上面這條曲線(也匯出成 Prometheus counter <code>vllm:spec_decode_num_*</code>)
+    就是你判斷「草稿者有沒有賺回成本」的依據。
+  </div>
+  <p class="mut" style="font-size:13px">別混淆兩個比率:<b>draft acceptance rate</b> = 接受數/草稿token數(每 token 命中率,<span class="src">metrics.py:88</span>);
+    <b>mean acceptance length</b> = 1 + 接受數/草稿批數(每次驗證吐幾個 token,<span class="src">metrics.py:95</span>)。只有後者直接對應加速。</p>
+</section>
+<hr class="hr">
+
+<!-- ============ 7 CONFIG ============ -->
+<section id="config">
+  <div class="ch">第 7 章</div>
+  <h2>怎麼開啟</h2>
+  <div class="lead">給 engine 一個 <code>speculative_config</code> 就開了——可以是完整 JSON,也可以用三個 shortcut 旗標。</div>
+  <pre><span class="c"># 完整 JSON(--speculative-config 的 type 是 json.loads)</span>
+--speculative-config <span class="s">'{"method":"eagle","model":"&lt;draft_ckpt&gt;","num_speculative_tokens":3}'</span>
+
+<span class="c"># 或用三個 shortcut(與 --speculative-config 內的同名 key 互斥)</span>
+--spec-method <span class="s">ngram</span> --spec-tokens <span class="s">3</span></pre>
+  <p><span class="src">vllm/engine/arg_utils.py:1465-1471 註冊 --speculative-config / --spec-method / --spec-model / --spec-tokens</span></p>
+
+  <h3>關鍵旋鈕</h3>
+  <table>
+    <tr><th>旋鈕</th><th>作用</th><th>原始碼</th></tr>
+    <tr><td><code>method</code></td><td>常常<b>不用指定</b>,會從 model 路徑 / HF config 自動偵測:<code>eagle-</code>→eagle、<code>model_type==medusa</code>→medusa、<code>*_mtp</code>→mtp,否則→<code>draft_model</code>。</td><td><span class="src">speculative.py:546 / :548</span></td></tr>
+    <tr><td><code>num_speculative_tokens</code></td><td>猜幾個,必須 &gt; 0。對 MTP 可從 draft config 的 <code>n_predict</code> 自動填。</td><td><span class="src">speculative.py:983</span></td></tr>
+    <tr><td><code>prompt_lookup_min/max</code></td><td><b>只對 ngram 有意義</b>,預設 <b>5 / 5</b>;其他方法會被強制設 0。</td><td><span class="src">speculative.py:598</span></td></tr>
+    <tr><td><code>draft_tensor_parallel_size</code></td><td>用這個,<b>不要</b>在 spec config 裡塞 <code>tensor_parallel_size</code>(存在只為報錯提醒)。</td><td><span class="src">speculative.py:977</span></td></tr>
+  </table>
+  <p>ngram 怎麼用這些旋鈕:<span class="src">ngram_proposer.py:19 min_n</span>
+    <span class="src">:21 max_n</span> <span class="src">:25 k = num_speculative_tokens</span>。</p>
+</section>
+<hr class="hr">
+
+<!-- ============ GLOSSARY ============ -->
+<section id="glossary">
+  <div class="ch">參考</div>
+  <h2>詞彙表</h2>
+  <dl class="glossary">
+    <dt>自迴歸 autoregressive</dt><dd>把模型自己剛生出來的輸出,當成下一步的輸入,一個接一個往下生。target 大模型是自迴歸的(所以生成是序列的、無法一次算完 n 個);EAGLE / MTP / draft_model 的草稿也是,Medusa 不是。</dd>
+    <dt>drafter / 草稿者</dt><dd>便宜地猜未來 token 的東西。可以是查表(ngram)、額外的頭(Medusa)、小 transformer(EAGLE)、或一整顆獨立小模型(draft_model)。</dd>
+    <dt>target / 目標模型</dt><dd>真正要服務的大模型。它的輸出分佈是「無損」要保住的對象。</dd>
+    <dt>propose / verify / accept</dt><dd>一個 step 的三拍:猜 K 個草稿 → target 一次 forward → 接受同意的前綴。</dd>
+    <dt>rejection sampling</dt><dd>用 <code>min(1, p/q)</code> 接受、被拒則從殘差 <code>max(p−q,0)</code> 重採的演算法,保證輸出分佈 = target 分佈。</dd>
+    <dt>bonus token</dt><dd>當一批草稿全被接受時,額外從 target 採的一個 token。每個 step 至少輸出 1 個 token,就是靠它。</dd>
+    <dt>acceptance length</dt><dd><code>1 + 接受數/草稿批數</code>。平均每次 target forward 吐幾個 token,≈ 加速上限。</dd>
+    <dt>EAGLE / EAGLE3</dt><dd>小 draft head,吃 target hidden state 自迴歸地猜。EAGLE3 融合 target 多層特徵且有自己的 draft 詞表。</dd>
+    <dt>MTP(multi-token prediction)</dt><dd>target checkpoint 內附的額外預測層,共用 embed/lm_head,在 vLLM 走 EAGLE 路徑。</dd>
+  </dl>
+</section>
+<hr class="hr">
+
+<!-- ============ COLOPHON ============ -->
+<section id="colophon">
+  <div class="ch">版本說明</div>
+  <h2>如何驗證本書</h2>
+  <p>所有 <span class="src">檔案:行號</span> 都是 <code>/home/alex/vllm</code> 這個 fork 裡的真實位置,寫書前已逐一 grep 驗證。
+    行號會隨 commit 漂移;對不上時,搜尋 pill 裡指名的符號(函式 / 變數名)即可。</p>
+  <p>本書內容由 7 個 agent 平行讀 6 個子系統(架構 / 方法 / 驗證 / EAGLE / 設定 / 量測)加上一個對抗式驗證 agent 彙整而成;
+    「無損」主張經獨立 agent 逐條反駁後判定 confirmed(含上面第 3 章的兩個前提)。</p>
+  <p class="mut">這是<b>高度客製化的 fork</b>,不是上游 vLLM:dispatcher 還支援 dflash / gemma4 / step3p5 / ngram_gpu /
+    extract_hidden_states / custom_class;EAGLE/EAGLE3/MTP/draft_model 的真正邏輯全集中在 76KB 的
+    <code>llm_base_proposer.py</code> 基底類別,<code>eagle.py</code> 只有 23 行。另有一套較新的 log-space rejection sampler 在
+    <code>vllm/v1/worker/gpu/spec_decode/</code>(數學等價,數值不同)。</p>
+</section>
+
+</main>
+</div>
+
+<footer>
+  Speculative Decoding · 一個觀念,完整追到 vLLM 程式碼 ·
+  顏色詞彙:<span style="color:var(--acc)">Propose</span> /
+  <span style="color:var(--amb)">Verify</span> /
+  <span style="color:var(--grn)">Accept</span> /
+  <span style="color:var(--pink)">Reject</span> /
+  <span style="color:var(--viol)">Bonus</span>
+</footer>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+function src(p){return '<span class="src">'+p+'</span>';}
+
+/* ================= Ch1 why-guess visualizer ================= */
+let whyMode="serial";
+function renderWhy(){
+  const N=4;
+  if(whyMode==="serial"){
+    const parts=[];
+    for(let i=1;i<=N;i++){
+      parts.push('<span class="fbox big">大模型 forward</span>');
+      parts.push('<span class="fsep">→</span>');
+      parts.push('<span class="fbox tok">t'+i+'</span>');
+      if(i<N)parts.push('<span class="fsep">→</span>');
+    }
+    $("#whyViz").innerHTML='<div class="vizrow">'+parts.join("")+'</div>'+
+      '<div class="vizcap">「直接算」4 個 token = <b style="color:var(--amb)">4 次大模型 forward</b>(序列,每次都重搬一次權重)。這就是慢的本體。</div>';
+  }else{
+    let chain="";
+    for(let i=1;i<=N;i++){
+      chain+='<span class="fbox draftmini">draft</span><span class="fsep">→</span><span class="gtok">g'+i+'</span>';
+      if(i<N)chain+='<span class="fsep">→</span>';
+    }
+    let toks="";for(let i=1;i<=N;i++)toks+='<span class="fbox tok">t'+i+'</span>';
+    $("#whyViz").innerHTML='<div class="vizrow">'+
+      '<div class="dgroup"><div class="dchain">'+chain+'</div>'+
+        '<div class="dbracket">便宜的小 draft · 自迴歸 '+N+' 次(每個猜測餵回去產下一個)</div></div>'+
+      '<span class="fsep">⇒</span>'+
+      '<span class="fbox big">大模型<br>1 次平行驗證</span>'+
+      '<span class="fsep">→</span>'+toks+'</div>'+
+      '<div class="vizcap">推測解碼:序列工作搬到了 <b style="color:#79c0ff">便宜的小 draft</b>(跑 '+N+' 次,小框);'+
+      '<b style="color:var(--amb)">昂貴的大模型只跑 1 次</b>(大框,平行驗證)。淨賺 = 省下的 '+(N-1)+' 次昂貴 forward。</div>';
+  }
+}
+$$("#whySeg button").forEach(b=>b.onclick=()=>{
+  $$("#whySeg button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  whyMode=b.dataset.m;renderWhy();
+});
+renderWhy();
+
+/* ================= Ch3 accept simulator ================= */
+const DRAFTS=["The","cat","sat","on"];
+const TARGET=["The","cat","dog","floor"]; // target 的 token(用於示範被拒時的取代)
+let agree=[true,true,true,false];
+let simMode="random";
+
+function renderToks(){
+  $("#simToks").innerHTML=DRAFTS.map((w,i)=>{
+    const a=agree[i];
+    return `<div class="tok ${a?'agree':'disagree'}" data-i="${i}">
+      <div class="pos">草稿 #${i}</div>
+      <div class="w">${w}</div>
+      <div class="v">${a?'✓ target 同意':'✗ 不同意'}</div>
+    </div>`;
+  }).join("");
+  $$("#simToks .tok").forEach(t=>t.onclick=()=>{const i=+t.dataset.i;agree[i]=!agree[i];renderSim();});
+}
+function renderSim(){
+  renderToks();
+  let firstReject=agree.findIndex(a=>!a);
+  if(firstReject===-1)firstReject=DRAFTS.length;
+  const chips=[];
+  for(let i=0;i<firstReject;i++) chips.push(`<div class="ochip acc">${DRAFTS[i]}<span class="sub">接受的草稿</span></div>`);
+  let emitted=firstReject; // accepted prefix count
+  if(firstReject<DRAFTS.length){
+    const rep = simMode==="greedy" ? TARGET[firstReject] : TARGET[firstReject];
+    const sub = simMode==="greedy" ? "target argmax" : "殘差重採樣";
+    chips.push(`<div class="ochip rej">${rep}<span class="sub">${sub} · 取代</span></div>`);
+    emitted+=1;
+    for(let i=firstReject+1;i<DRAFTS.length;i++) chips.push(`<div class="ochip drop">${DRAFTS[i]}<span class="sub">丟棄 (-1)</span></div>`);
+  }else{
+    chips.push(`<div class="ochip bonus">★<span class="sub">bonus token</span></div>`);
+    emitted+=1;
+  }
+  $("#simOut").innerHTML=chips.join("");
+
+  let verdict="";
+  if(firstReject===DRAFTS.length){
+    verdict=`全部 ${DRAFTS.length} 個草稿都被接受 → 再補一個 <b style="color:var(--viol)">bonus token</b>。
+      這個 step 的 target 只跑 <b>1 次 forward</b>,卻產出了 <b>${emitted} 個 token</b>(最好情況)。`;
+  }else{
+    const govern = simMode==="greedy"
+      ? `判定:接受 ⟺ 草稿 == target argmax(${src('rejection_sampler.py:748-752')});取代直接用 argmax,不採殘差。`
+      : `判定:接受機率 min(1, p/q)(${src('rejection_sampler.py:817')});被拒從殘差 max(p−q,0) 採取代(${src('rejection_sampler.py:914')})。`;
+    verdict=`在草稿 #${firstReject} 處 target 不同意 → 接受前 <b>${firstReject}</b> 個,在此放入 target 自己的 token,
+      <b>後面整批丟棄</b>(標 -1)。這個 step 產出了 <b>${emitted} 個 token</b>。<br>${govern}`;
+  }
+  if(emitted===1 && firstReject===0){
+    verdict+=`<br><span class="mut">注意:即使第一個就被拒,仍輸出 1 個 token(取代品)——所以推測解碼最差也不會比普通解碼慢在「吐字數」上,只是白付了草稿成本。</span>`;
+  }
+  $("#simVerdict").innerHTML=verdict;
+}
+$$("#modeSeg button").forEach(b=>b.onclick=()=>{
+  $$("#modeSeg button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  simMode=b.dataset.mode;renderSim();
+});
+renderSim();
+
+/* ================= Ch4 methods map ================= */
+const METHODS=[
+ {id:'ngram',name:'n-gram',tl:'在前文裡找重複字串,直接抄它後面接過的 token(KMP-LPS 查表)',
+  model:'不用 — 純查表,沒有神經網路',auto:'不適用',aux:'不適用',cost:'幾乎為零',
+  note:'最便宜。適合輸出大量重複輸入內容的場景(摘要、RAG、改寫 code)。',
+  files:['ngram_proposer.py:199 _find_longest_matched_ngram(KMP-LPS)','ngram_proposer.py:164 load_model 是 no-op(無模型)']},
+ {id:'medusa',name:'Medusa',tl:'在 target 上接幾個平行預測頭,一次 forward 同時出 K 個',
+  model:'幾個輕量預測頭',auto:'否 — 單次 forward,各頭 argmax',aux:'吃 target hidden state',cost:'低',
+  note:'唯一不自迴歸的神經方法;也是唯一不繼承 SpecDecodeBaseProposer 的。',
+  files:['medusa.py:53 各頭 argmax 後 torch.stack 成 [batch, num_heads]','models/medusa.py:41 ResBlock × num_heads + 各自的 lm_head']},
+ {id:'eagle',name:'EAGLE',tl:'小 transformer,吃 target 最後一層 hidden state + 下一 token embedding,逐個產草稿',
+  model:'小 draft head',auto:'是 — 自迴歸鏈',aux:'吃(pass_hidden_states_to_model=True)',cost:'中',
+  note:'目前最常用。詳見第 5 章。',
+  files:['eagle.py:20 EagleProposer(pass_hidden_states_to_model=True)','llama_eagle.py:107 fc(cat(input_embeds, hidden_states))','llm_base_proposer.py:577 自迴歸鏈迴圈']},
+ {id:'eagle3',name:'EAGLE3',tl:'同 EAGLE,但融合 target 多層 hidden state,且有自己的 draft 詞表',
+  model:'小 draft head',auto:'是 — 自迴歸鏈',aux:'吃 target 多層(預設 layer 2, n/2, n−3)',cost:'中',
+  note:'與 EAGLE 共用同一個 EagleProposer 類別;差別只在 method 字串與是否融合多層。',
+  files:['llm_base_proposer.py:456 method in ("eagle3","dflash") 分支','llama_eagle3.py:378 combine_hidden_states 融合降維','llama_eagle3.py:354 draft 詞表 + d2t 映射回全詞表']},
+ {id:'mtp',name:'MTP',tl:'target checkpoint 內附的額外預測層,共用 embed / lm_head',
+  model:'內建在權重裡',auto:'是 — 走 EAGLE 路徑',aux:'吃',cost:'低–中',
+  note:'DeepSeek / GLM / Qwen3-Next 等模型內建。所有 *_mtp 型別都被正規化成 method=mtp。',
+  files:['config/speculative.py:1071 use_eagle() 含 "mtp"','models/deepseek_mtp.py:43 SharedHead / 預測層']},
+ {id:'draft',name:'draft_model',tl:'跑一個完整獨立的小 LLM,自己做完整 forward(不吃 target hidden state)',
+  model:'完整獨立模型',auto:'是',aux:'不吃(pass_hidden_states_to_model=False)',cost:'高',
+  note:'最經典的 spec decode 形式;成本最高,要另一顆模型。詞表與 TP 須與 target 相同。',
+  files:['draft_model.py:27 pass_hidden_states_to_model=False','draft_model.py 強制 draft/target 詞表大小與 TP 相同']},
+];
+let curMethod='eagle';
+function renderMchips(){
+  $("#mchips").innerHTML=METHODS.map(m=>`<div class="mchip ${m.id===curMethod?'on':''}" data-id="${m.id}">${m.name}</div>`).join("");
+  $$("#mchips .mchip").forEach(c=>c.onclick=()=>{curMethod=c.dataset.id;renderMchips();renderMethodCard();});
+}
+function renderMethodCard(){
+  const m=METHODS.find(x=>x.id===curMethod);
+  $("#methodCard").innerHTML=`
+    <div class="hd"><div class="ttl">${m.name}</div><div class="tl">${m.tl}</div></div>
+    <div class="bd">
+      <div class="mgrid">
+        <div><div class="k">要不要獨立模型</div><div class="val">${m.model}</div></div>
+        <div><div class="k">是不是自迴歸</div><div class="val">${m.auto}</div></div>
+        <div><div class="k">吃不吃 target hidden state</div><div class="val">${m.aux}</div></div>
+        <div><div class="k">額外成本</div><div class="val">${m.cost}</div></div>
+      </div>
+      <div style="font-size:13.5px;margin-bottom:8px">${m.note}</div>
+      <div class="k" style="font-size:10.5px;letter-spacing:.5px;color:var(--mut);font-weight:700">原始碼</div>
+      <div class="mfiles">${m.files.map(f=>src('vllm/v1/spec_decode/'+f).replace('vllm/v1/spec_decode/config/','vllm/config/').replace('vllm/v1/spec_decode/models/','vllm/model_executor/models/')).join("")}</div>
+    </div>`;
+}
+renderMchips();renderMethodCard();
+
+/* ================= Ch5 eagle chain ================= */
+let eagleVer=1;
+function renderChain(){
+  const feat = eagleVer===3
+    ? {ct:'① target 多層特徵',cd:'combine_hidden_states 融合 layer 2/n·½/n−3 → 降維'}
+    : {ct:'① target 最後一層',cd:'target 對上一 token 的 hidden state'};
+  const nodes=[
+    `<div class="cnode feat"><div class="ct">${feat.ct}</div><div class="cd">${feat.cd}</div></div>`,
+    `<div class="carr">→</div>`,
+    `<div class="cnode draft"><div class="ct">② 第一步 draft</div><div class="cd">fc(cat(下一token embedding, hidden)) → 產出 <b>草稿₀</b></div></div>`,
+    `<div class="carr">→</div>`,
+    `<div class="cnode rec"><div class="ct">③ 自迴歸鏈 ×(K−1)</div><div class="cd">把<b>草稿head 自己上一步的 hidden state</b>餵回 → 草稿₁ → 草稿₂ → …</div></div>`,
+    `<div class="carr">→</div>`,
+    `<div class="cnode draft"><div class="ct">④ 輸出</div><div class="cd">stack 成 <code>[batch, K]</code> 一條 chain</div></div>`,
+  ];
+  $("#eagleChain").innerHTML=nodes.join("");
+  $("#e3box").classList.toggle("show",eagleVer===3);
+}
+$$("#eagleSeg button").forEach(b=>b.onclick=()=>{
+  $$("#eagleSeg button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  eagleVer=+b.dataset.e;renderChain();
+});
+renderChain();
+
+/* ================= Ch6 decay bars ================= */
+const REAL=[0.7296,0.5208,0.3545]; // llama3-8b eagle3 baseline, per-position cumulative accept prob
+const DECAY=0.68;                  // illustrative projection factor beyond measured positions
+function perPos(k){
+  const arr=[];
+  for(let i=0;i<k;i++){
+    if(i<REAL.length)arr.push({p:REAL[i],real:true});
+    else arr.push({p:arr[i-1].p*DECAY,real:false});
+  }
+  return arr;
+}
+function renderDecay(){
+  const k=+$("#kSlider").value; $("#kVal").textContent=k;
+  const ps=perPos(k);
+  $("#decayBars").innerHTML=ps.map((d,i)=>`
+    <div class="bcol2 ${d.real?'':'proj'}">
+      <div class="bar" style="height:${(d.p*100).toFixed(1)}%"><span class="pct">${d.p.toFixed(2)}</span></div>
+      <div class="lab">位置 ${i}${d.real?'':'<br>(外推)'}</div>
+    </div>`).join("");
+  const accepted=ps.reduce((s,d)=>s+d.p,0);
+  $("#accVal").textContent=accepted.toFixed(2);
+  $("#alVal").textContent=(1+accepted).toFixed(2);
+}
+$("#kSlider").oninput=renderDecay;
+renderDecay();
+
+/* ================= scroll spy ================= */
+const links=$$("nav.toc a");
+const secs=links.map(a=>document.querySelector(a.getAttribute("href"))).filter(Boolean);
+const spy=new IntersectionObserver(es=>es.forEach(e=>{
+  if(e.isIntersecting){const id="#"+e.target.id;
+    links.forEach(a=>a.classList.toggle("active",a.getAttribute("href")===id));}
+}),{rootMargin:"-10% 0px -80% 0px"});
+secs.forEach(s=>spy.observe(s));
+</script>
+</body>
+</html>
