@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vLLM 優化之書 — 四本帳,一場預算戰</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --ink:#e6edf3; --mut:#9aa7b4;
+    --line:#2b333d; --acc:#58a6ff; --grn:#7ee787; --amb:#f0b429; --pink:#ff7b9c;
+    --code:#0b0f14; --pill:#21303f; --shadow:0 6px 24px rgba(0,0,0,.35); --maxw:960px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",Roboto,sans-serif}
+  code,pre,.mono{font-family:"SF Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  .layout{display:grid;grid-template-columns:264px 1fr;min-height:100vh}
+  @media(max-width:900px){.layout{grid-template-columns:1fr} nav.toc{display:none}}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;
+    border-right:1px solid var(--line);background:#0b0e13;padding:22px 14px}
+  nav.toc h1{font-size:15px;margin:0 0 3px} nav.toc .sub{color:var(--mut);font-size:12px;margin-bottom:16px}
+  nav.toc a{display:block;color:var(--mut);padding:5px 10px;border-radius:7px;font-size:13.5px}
+  nav.toc a:hover{background:var(--panel);color:var(--ink);text-decoration:none}
+  nav.toc a.active{background:var(--pill);color:var(--ink)}
+  main{max-width:var(--maxw);margin:0 auto;padding:44px 32px 120px;width:100%}
+  section{scroll-margin-top:18px;padding-top:24px}
+  h2{font-size:26px;margin:8px 0 2px;line-height:1.25}
+  h3{font-size:18.5px;margin:28px 0 6px}
+  h4{font-size:15.5px;margin:18px 0 4px}
+  .ch{color:var(--acc);font-size:12.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase}
+  p{margin:10px 0} .mut{color:var(--mut)}
+  .hr{height:1px;background:var(--line);margin:32px 0;border:0}
+  ul,ol{margin:10px 0;padding-left:22px} li{margin:5px 0}
+  .lead{font-size:17.5px;line-height:1.68;background:linear-gradient(90deg,rgba(88,166,255,.08),rgba(88,166,255,0));
+    border-left:3px solid var(--acc);padding:13px 17px;border-radius:0 10px 10px 0;color:#dce6f0;margin:14px 0 6px}
+  .lead b{color:#fff}
+  .src{display:inline-flex;align-items:center;gap:5px;background:var(--pill);border:1px solid #2c3e50;
+    color:#9fd0ff;border-radius:6px;padding:1px 7px;font:600 11.5px/1.6 "SF Mono",ui-monospace,monospace;
+    white-space:nowrap;vertical-align:baseline}
+  .src:hover{background:#243748;text-decoration:none;border-color:var(--acc)}
+  .src::before{content:"\1F517";font-size:10px;opacity:.7}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:13px 15px;overflow:auto;
+    font-size:13px;line-height:1.55;margin:12px 0}
+  pre .c{color:#6e7a87} pre .k{color:#ff7b9c} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff} pre .n{color:#79c0ff} pre .g{color:#7ee787}
+  p code,li code,td code,summary code{background:#1b222b;border:1px solid #28313c;border-radius:5px;
+    padding:.5px 5px;font-size:13px;color:#cdd9e5}
+  .note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--grn);
+    border-radius:0 10px 10px 0;padding:12px 16px;margin:16px 0}
+  .note.warn{border-left-color:var(--amb)}
+  .note .t{font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--grn);margin-bottom:3px}
+  .note.warn .t{color:var(--amb)}
+  .cap{border:1px solid #1d5a6b;border-radius:10px;margin:14px 0;overflow:hidden}
+  .cap .ch2{background:#0e3340;color:#67e8f9;font-size:12px;font-weight:700;padding:6px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .cap .ch2 .why{color:#bfd7de;font-weight:400}
+  .cap pre{margin:0;border:0;border-radius:0}
+  details{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}
+  details>summary{cursor:pointer;padding:10px 16px;font-weight:600;font-size:14px;list-style:none;
+    display:flex;align-items:center;gap:9px;user-select:none}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::before{content:"\25B6";color:var(--acc);font-size:10px;transition:transform .15s}
+  details[open]>summary::before{transform:rotate(90deg)}
+  details>summary:hover{background:var(--panel2)}
+  details .body{padding:2px 18px 16px;border-top:1px solid var(--line)}
+  table{border-collapse:collapse;width:100%;margin:13px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:7px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut)}
+  tr:nth-child(even) td{background:rgba(255,255,255,.012)}
+  .tblwrap{overflow-x:auto}
+  /* ledger badges — 四本帳的顏色,全書固定 */
+  .badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.4px;
+    padding:1px 8px;border-radius:5px;margin-right:6px}
+  .b-move{background:#3a2c10;color:var(--amb)}
+  .b-comp{background:#16341f;color:var(--grn)}
+  .b-wait{background:#0f2b40;color:#79c0ff}
+  .b-fit{background:#3a1a26;color:var(--pink)}
+  .b-step{background:#3a2d52;color:#d2a8ff}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:4px;vertical-align:-1px}
+  .d-move{background:var(--amb)} .d-comp{background:var(--grn)} .d-wait{background:var(--acc)} .d-fit{background:var(--pink)}
+  /* pipeline selector */
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+  .stage{flex:1 1 116px;min-width:118px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:10px;cursor:pointer;transition:.12s;position:relative}
+  .stage:hover{border-color:var(--acc);transform:translateY(-2px)}
+  .stage.sel{border-color:var(--acc);background:#15263a;box-shadow:var(--shadow)}
+  .stage .st{font-size:13.5px;font-weight:600} .stage .sd{font-size:11.5px;color:var(--mut);margin-top:3px;line-height:1.4}
+  #stageDetail{background:var(--panel2);border:1px solid var(--line);border-radius:12px;margin:6px 0 4px;overflow:hidden}
+  #stageDetail .hd{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 16px;
+    background:#13202f;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #stageDetail .hd .ttl{font-size:15px;font-weight:700}
+  #stageDetail .bd{padding:12px 16px}
+  /* decision tree */
+  .dtree{margin:16px 0}
+  .dchips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+  .dchip{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:4px 13px;
+    font:600 12.5px/1.6 "Noto Sans TC",sans-serif;cursor:pointer;color:var(--mut)}
+  .dchip:hover{border-color:var(--acc);color:var(--ink)}
+  .dchip.on{background:var(--pill);color:#fff;border-color:var(--acc)}
+  .drow{display:flex;align-items:stretch;gap:0;margin:6px 0}
+  @media(max-width:760px){.drow{flex-direction:column}.dyes{padding-left:0!important;margin-top:6px}}
+  .dq{flex:0 0 260px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 13px;
+    font-size:13.5px;position:relative;transition:.15s}
+  .dq .ql{font-weight:700} .dq .qs{color:var(--mut);font-size:11.5px;margin-top:2px}
+  .dq.lit{border-color:var(--acc);background:#15263a;box-shadow:var(--shadow)}
+  .dyes{flex:1;display:flex;align-items:center;padding-left:14px}
+  .dout{border-radius:10px;padding:8px 14px;font-size:13.5px;border:1px solid var(--line);background:var(--panel);
+    opacity:.55;transition:.15s;width:100%}
+  .dout.lit{opacity:1;box-shadow:var(--shadow)}
+  .dout.o-comp.lit{border-color:#2a543a;background:#12271b}
+  .dout.o-fit.lit{border-color:#6b2742;background:#2b1622}
+  .dout.o-wait.lit{border-color:#1d456b;background:#0f2233}
+  .dout.o-move.lit{border-color:#5a4a16;background:#241d09}
+  .dconn{display:flex;flex-direction:column;align-items:center;width:260px;flex:0 0 260px;color:#46525f}
+  .dconn .lbl{font:600 10.5px/1.4 "SF Mono",monospace;color:var(--mut)}
+  .dconn .vl{width:2px;height:12px;background:var(--line)}
+  .dconn.lit .vl{background:var(--acc)} .dconn.lit .lbl{color:var(--acc)}
+  #dverdict{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:12px;min-height:54px}
+  /* live map (Ch8) */
+  .big{display:grid;grid-template-columns:minmax(360px,1.2fr) 1fr;gap:14px;margin:18px 0 8px}
+  @media(max-width:980px){.big{grid-template-columns:1fr}}
+  .bigcode{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:12px 8px;overflow:auto}
+  .bigcode .capn{font:600 11px/1.6 "SF Mono",monospace;color:var(--mut);padding:0 8px 8px;border-bottom:1px solid var(--line);margin-bottom:6px}
+  .cl{display:block;font:12.6px/1.75 "SF Mono",ui-monospace,monospace;padding:1px 8px;border-radius:6px;white-space:pre;color:#8b97a5}
+  .cl.op{cursor:pointer;color:#cdd9e5}
+  .cl.op:hover{background:#18222e}
+  .cl.op.l-move.hi{background:#241d09;color:#ffd98a;box-shadow:inset 3px 0 0 var(--amb)}
+  .cl.op.l-comp.hi{background:#12271b;color:#bff0cd;box-shadow:inset 3px 0 0 var(--grn)}
+  .cl.op.l-wait.hi{background:#0f2233;color:#cfe6ff;box-shadow:inset 3px 0 0 var(--acc)}
+  .cl.op.l-fit.hi{background:#2b1622;color:#ffc2d2;box-shadow:inset 3px 0 0 var(--pink)}
+  .bigmap{display:flex;gap:8px;align-items:stretch}
+  @media(max-width:560px){.bigmap{flex-wrap:wrap}}
+  .bcol{flex:1;display:flex;flex-direction:column;cursor:pointer;border-radius:12px;padding:8px 6px;
+    border:1px solid transparent;transition:.15s;opacity:.6;min-width:120px}
+  .bcol:hover{opacity:.85}
+  .bcol.hi{opacity:1;border-color:var(--line);background:rgba(255,255,255,.015);box-shadow:var(--shadow)}
+  .bcap{text-align:center;font:700 12px/1.9 "Noto Sans TC",sans-serif;border-radius:6px;padding:1px 7px;margin:0 auto 8px}
+  .bcap.c-move{color:var(--amb);background:#2c2208;border:1px solid #5a4a16}
+  .bcap.c-comp{color:var(--grn);background:#11261c;border:1px solid #1e3a2a}
+  .bcap.c-wait{color:#79c0ff;background:#0f2b40;border:1px solid #1d456b}
+  .bcap.c-fit{color:var(--pink);background:#2b1622;border:1px solid #6b2742}
+  .bnode{border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;text-align:center;background:#16202c;margin-bottom:6px;color:#aab7c4}
+  .bcol.hi .bnode{color:#e6edf3}
+  #bigDetail{background:var(--panel2);border:1px solid var(--line);border-radius:12px;margin:10px 0;overflow:hidden}
+  #bigDetail .hd{padding:11px 16px;background:#13202f;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+  #bigDetail .hd .ttl{font-weight:700;font-size:15px}
+  #bigDetail .bd{padding:13px 17px}
+  footer{max-width:var(--maxw);margin:0 auto;padding:28px 32px 80px;color:var(--mut);font-size:13px;border-top:1px solid var(--line)}
+  .xbook{position:fixed;top:14px;right:16px;z-index:50;background:var(--pill);color:#cfe6ff;
+    border:1px solid var(--acc);border-radius:8px;padding:6px 13px;font:600 13px/1 sans-serif;box-shadow:var(--shadow)}
+  .xbook:hover{background:#243748;text-decoration:none}
+</style>
+</head>
+<body>
+<a class="xbook" href="index.html" title="系統全景:vLLM 之書">📖 vLLM 之書</a>
+<div class="layout">
+<nav class="toc" id="toc">
+  <h1>vLLM 優化之書</h1>
+  <div class="sub">四本帳,一場預算戰<br>pinned @ e35e4cf43</div>
+  <a href="#intro">序 · 唯一的想法</a>
+  <a href="#regime">1 · 兩個 regime:時間都花在哪</a>
+  <a href="#fit">2 · 裝:PagedAttention 與前綴快取</a>
+  <a href="#moveprefill">3 · 搬(prefill):FlashAttention</a>
+  <a href="#movedecode">4 · 搬(decode):投機解碼</a>
+  <a href="#wait">5 · 等:融合與 CUDA Graphs</a>
+  <a href="#comp">6 · 算:LoRA 與不合作的形狀</a>
+  <a href="#decide">7 · 決策:服務慢,動哪裡?</a>
+  <a href="#map">8 · 一步 decode 的活地圖</a>
+  <a href="#appendix">附錄 · 帳本標記版總目錄</a>
+  <a href="#colophon">Colophon · 如何驗證本書</a>
+</nav>
+
+<main>
+
+<!-- ================= PREFACE ================= -->
+<section id="intro">
+  <div class="ch">序</div>
+  <h2>唯一的想法</h2>
+  <p class="lead">GPU 服務一個大語言模型時,它的每一毫秒只花在三件事之一:<b>算</b>(做浮點運算)、
+  <b>搬</b>(把位元組搬進搬出顯示記憶體)、<b>等</b>(kernel 啟動、同步、CPU 簿記)。第四本帳<b>裝</b>
+  (記憶體容量)不直接花時間,但它決定你能疊多大的批次——而批次大小決定你是在「算」還是在「搬」。
+  <b>vLLM 裡的每一個優化,都是在還這四本帳的其中一筆債;它值不值得,取決於你當下的 regime
+  (prefill 還是 decode)哪個債主上門。</b>這本書的其餘部分全是這句話的細節。</p>
+
+  <p>四本帳,顏色全書固定——每張圖、每個徽章、每個目錄項都用同一套:</p>
+  <div class="tblwrap"><table>
+    <tr><th></th><th>它是什麼</th><th>病徵</th><th>主要藥方(章)</th></tr>
+    <tr><td><span class="badge b-move">搬 move</span></td><td>位元組進出 HBM:權重、KV cache、中間物</td><td>字與字之間慢(ITL 高);batch 加大吞吐才上升</td><td>FlashAttention(3)、投機解碼(4)、KV/權重量化</td></tr>
+    <tr><td><span class="badge b-comp">算 comp</span></td><td>FLOPs:GEMM、attention 分數</td><td>首字慢(TTFT 高);GPU 利用率吃滿仍慢</td><td>更強的 kernel、量化、形狀特化 kernel(6)</td></tr>
+    <tr><td><span class="badge b-wait">等 wait</span></td><td>kernel launch、同步、CPU 排程、通訊延遲</td><td>batch 小、模型小,延遲卻下不去;GPU 有空隙</td><td>融合、CUDA Graphs(5)、高效排程</td></tr>
+    <tr><td><span class="badge b-fit">裝 fit</span></td><td>HBM 容量:權重 + KV + 激活</td><td>OOM;batch 上不去 → 吞吐被鎖死</td><td>PagedAttention / 前綴快取(2)、LoRA(6)、量化</td></tr>
+  </table></div>
+
+  <div class="note">
+    <div class="t">這本書怎麼讀</div>
+    第 1 章用<b>本機實測</b>建立全書的座標系:同一顆 RTX 4090 上,prefill 每 token 14.6 µs、
+    decode 每 token 5.25 ms——<b>359 倍</b>。第 2–6 章每章還一本帳,能實測的都附本機 capture
+    (青色框,重現指令見 <a href="#colophon">Colophon</a>)。第 7 章是<b>互動決策樹</b>:
+    挑一個病徵,看它被路由到哪個處方。第 8 章是本書的核心:<b>一步 decode 的活地圖</b>——
+    點左邊的每一行,右邊亮起它欠的帳與攻擊它的優化。<code>▶</code> 後面是選讀深度。
+    每個宣稱都掛著一顆像 <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/core/sched/scheduler.py#L396">scheduler.py:396</a>
+    的藥丸,連到<b>釘選 commit 的那一行原始碼</b>。深挖系統機制時,姊妹書
+    <a href="index.html">《vLLM 之書》</a>有整章展開;本書專注「為什麼快」。
+  </div>
+</section>
+
+<hr class="hr">
+
+<!-- ================= 1 REGIME ================= -->
+<section id="regime">
+  <div class="ch">第 1 章</div>
+  <h2>兩個 regime:時間都花在哪</h2>
+  <p class="lead">一個 request 的一生分兩段:<b>prefill</b>(一次吃完整個 prompt)與
+  <b>decode</b>(每步吐一個字)。兩段做的數學一樣,<b>經濟學卻完全相反</b>——prefill 把一次權重讀取
+  攤給幾千個位置,decode 每個字都把幾 GB 權重從頭讀一遍。先看錢花在哪,才知道哪個優化值得買。點下面每一站:</p>
+
+  <div class="pipe" id="pipe"></div>
+  <div id="stageDetail"></div>
+
+  <h3>座標系:本機實測 359×</h3>
+  <div class="cap"><div class="ch2">實測 capture R <span class="why">— RTX 4090 · Qwen2.5-0.5B · batch=1 · eager · 前綴快取關閉</span></div>
+<pre>[R0] prompt_a=961 tok, prompt_b=897 tok, decode_steps=128
+[R1] prefill: 14.1 ms total -> <span class="g">14.6 us/token</span>
+[R2] decode : 672.1 ms for 128 steps -> <span class="g">5.25 ms/token</span>
+[R3] per-token cost ratio decode/prefill = <span class="g">359x</span></pre></div>
+
+  <p>同一個模型、同一顆卡、同樣的每 token 數學,成本差 <b>359 倍</b>。原因不是計算,是<b>搬運的攤提</b>:</p>
+  <div class="tblwrap"><table>
+    <tr><th></th><th>一次 forward 讀權重</th><th>產出 logits</th><th>每 token 的權重讀取</th><th>bound</th></tr>
+    <tr><td><b>prefill</b>(961 tok)</td><td>1 次</td><td>961 份</td><td>1/961 次</td><td><span class="badge b-comp">算</span>算術強度高,吃滿 Tensor Core</td></tr>
+    <tr><td><b>decode</b>(每步)</td><td>1 次</td><td>1 份</td><td>1 次</td><td><span class="badge b-move">搬</span>讀 1GB 權重算幾百萬 FLOP</td></tr>
+  </table></div>
+
+  <p>這給出全書反覆使用的三條推論:</p>
+  <ul>
+    <li><b>prefill 的優化要省「算」與 N² 的中間物</b> —— 第 3 章 FlashAttention 的地盤。</li>
+    <li><b>decode 的優化要省「搬」</b>:要嘛讓一次權重讀取產出更多 token(第 4 章投機解碼、continuous batching),
+      要嘛把要搬的位元組變少(KV/權重量化)。</li>
+    <li><b>decode 的單步工作太小,「等」也開始顯形</b> —— 幾百個微小 kernel 的啟動費(第 5 章融合)。</li>
+  </ul>
+
+  <div class="note">
+    <div class="t">裝(fit)是槓桿,不是時間</div>
+    continuous batching 把 256 個 decode 疊進同一步:權重仍然只讀一次,卻產出 256 個 token——
+    「搬」被攤成「算」。而你能疊多大的 batch,取決於 KV cache <b>裝</b>得下多少 request。
+    這就是為什麼第 2 章(容量)排在所有時間帳之前:<b>容量是把搬轉成算的籌碼</b>。
+    排程端的機制(token 預算、兩階段)在《vLLM 之書》第 2 章;本書只取它的經濟意義。
+  </div>
+
+  <details><summary>選讀:為什麼「讀權重」主宰 decode——一筆信封背面的帳</summary><div class="body">
+    <p>0.5B 模型 bf16 權重 ≈ 1 GB。4090 的 HBM 頻寬 ≈ 1 TB/s,光讀權重的下限就是 ~1 ms/步;
+    實測 5.25 ms 還包含 KV 讀取、啟動費與未飽和的頻寬。而這一步的計算量(batch=1)約 2×0.5G = 1 GFLOP,
+    對 4090 的 ~80 TFLOPS(bf16)只是 ~0.01 ms 的活——<b>算力閒著,頻寬滿載</b>。
+    把 batch 疊到 256,計算變 256 GFLOP(~3 ms)而權重讀取不變:兩者打平,regime 從搬轉算。
+    這條「多大 batch 才轉 regime」的分界線,就是 roofline 模型的脊點。</p>
+  </div></details>
+</section>
+<hr class="hr">
+
+<!-- ================= 2 FIT ================= -->
+<section id="fit">
+  <div class="ch">第 2 章 · <span class="badge b-fit">裝 fit</span></div>
+  <h2>PagedAttention 與前綴快取:容量債變吞吐</h2>
+  <p class="lead">第 1 章說批次是把「搬」攤成「算」的籌碼,而籌碼存在 KV cache 裡。傳統做法幫每個 request
+  按「最長可能」預留一整段連續記憶體——<b>真實利用率只有 20–40%</b>,剩下全是碎片。PagedAttention
+  把 KV 切成固定大小的 block、像作業系統的分頁一樣按需配置:利用率升到 ~96%,
+  <b>同樣的 HBM 裝下 2–4 倍的 request</b>,吞吐直接跟著翻。這是 vLLM 起家的那篇論文(SOSP'23)。</p>
+
+  <h3>2.1 兩筆浪費,一個解法</h3>
+  <div class="tblwrap"><table>
+    <tr><th>浪費</th><th>連續配置的病</th><th>分頁後</th></tr>
+    <tr><td>內部碎片</td><td>預留 max_len,實際長度遠短於它——大半空白</td><td>block 按需配,只有尾塊平均半空</td></tr>
+    <tr><td>外部碎片</td><td>長短不一的釋放留下塞不進新請求的洞</td><td>所有 block 同尺寸,無洞可留</td></tr>
+    <tr><td>無法共享</td><td>相同 system prompt 每人一份</td><td>block table 指向同一批實體 block</td></tr>
+  </table></div>
+  <p>request 拿到的是一張 <b>block table</b>(邏輯位置 → 實體 block id),attention kernel 透過它間接定址——
+  page table 的翻版。配置、參照計數、驅逐由 <code>KVCacheManager</code> 管理
+  <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/core/kv_cache_manager.py#L244">kv_cache_manager.py:244</a>;
+  block 級機制(free list、ref count、驅逐序)在《vLLM 之書》第 3 章有整章展開。</p>
+
+  <h3>2.2 複利:前綴快取</h3>
+  <p>分頁的副產品比本體更值錢:block 有了獨立身分,就能<b>內容定址</b>。每個寫滿的 block 以
+  「鏈到前驅的哈希」入庫
+  <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/core/kv_cache_utils.py#L577">kv_cache_utils.py:577</a>;
+  下一個帶著相同前綴的 request 直接<b>認領</b>這些 block——不只省了「裝」,連那段 prefill 的「算」都免了。本機實測:</p>
+
+  <div class="cap"><div class="ch2">實測 capture E <span class="why">— 同卡同模型;三輪請求,block_size=16,KV 池 810,912 tokens</span></div>
+<pre>round 1 (cold)              : prompt_tokens=161, num_cached_tokens=0
+round 2 (shared prefix)     : prompt_tokens=159, num_cached_tokens=<span class="g">144</span>   ← 9×16,只有滿 block 入庫
+round 3 (identical to rd 1) : prompt_tokens=161, num_cached_tokens=<span class="g">160</span>   ← 161−1,最後一 token 永遠重算</pre></div>
+
+  <p>對「同一個長 system prompt 服務所有人」的部署,這是<b>免費的 prefill 摧毀器</b>——第 7 章決策樹裡它是
+  TTFT 病徵的第一張處方。共享靠 <code>touch</code> 復活 free-but-cached block
+  <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/core/block_pool.py#L597">block_pool.py:597</a>。</p>
+
+  <details><summary>選讀:內核考古 + 裝帳本的其他工具</summary><div class="body">
+    <p><b>內核在哪?</b>早年的獨立 CUDA kernel <code>paged_attention_v{1,2}.cu</code> 在本書釘選的 HEAD 已被
+    <b>移除</b>(commit <code>22a58640b</code>,torch stable ABI 遷移):CUDA 上的分頁定址如今由
+    FlashAttention / FlashInfer 內核原生承擔
+    <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/attention/backends/flash_attn.py#L67">flash_attn.py:67</a>,
+    只有 ROCm 留著獨立 kernel。「PagedAttention」活在管理層,不再是一個 .cu 檔。</p>
+    <p><b>同帳本的其他工具:</b>KV 量化(<code>cache_dtype="fp8"</code>
+    <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/config/cache.py#L76">cache.py:76</a>)
+    一次還兩本帳——容量減半、每步搬的 KV 位元組也減半;CPU offload(<code>vllm/v1/kv_offload/</code>)把閒置 request 的
+    block 搬去主記憶體;TP 把「裝」的問題攤到多卡(代價是「等」帳本的 all-reduce,見第 8 章地圖第 7 行)。
+    權重量化(AWQ/GPTQ/FP8)同理:裝與搬雙賺,代價記在「算」(de-quant)上。</p>
+  </div></details>
+</section>
+
+<hr class="hr">
+
+<!-- ================= 3 MOVE-PREFILL ================= -->
+<section id="moveprefill">
+  <div class="ch">第 3 章 · <span class="badge b-move">搬 move</span> × prefill</div>
+  <h2>FlashAttention:不落地的注意力</h2>
+  <p class="lead">prefill 是算-bound 的——除了一個著名的例外。標準 attention 會具體化兩個
+  <code>[N,N]</code> 的中間物(<code>S=QKᵀ</code> 和 <code>P=softmax(S)</code>):N=8192 時各 6,700 萬個元素,
+  寫進 HBM 再讀回來。<b>搬這兩張表比算它們還貴</b>——攻擊方式是讓它們從頭到尾不存在:
+  切 tile 在晶片上的 SRAM 裡算完就丟。這就是 FlashAttention,prefill 典型快 2–4×,N 越長賺越多。</p>
+
+  <div class="tblwrap"><table>
+    <tr><th>層級</th><th>大小</th><th>頻寬</th><th></th></tr>
+    <tr><td><b>SRAM</b>(shared memory / SM)</td><td>~228 KB</td><td>~19 TB/s</td><td>tile 的家</td></tr>
+    <tr><td><b>HBM</b>(global memory)</td><td>80 GB</td><td>~3 TB/s</td><td>[N,N] 的墳場</td></tr>
+  </table></div>
+
+  <h3>唯一的難關:softmax 要全行資訊</h3>
+  <p>分塊 GEMM 免費(部分和可加),softmax 不行——分母 Σexp 和數值穩定的行 max 都是全行函數。
+  解法是 <b>online softmax</b>:每行只帶三個統計量(running max <code>m</code>、分母 <code>l</code>、
+  未歸一化輸出 <code>O</code>)跨塊前進;max 更新時把舊累積乘上 <code>α=exp(m−m_new)</code> 追溯重定基準。
+  真實數字走一遍(重現:<code>softmax_online.py</code>):</p>
+
+<pre>s = [2.0, 1.0, 3.0, 0.5] 切兩塊     參考答案 softmax(s)@V = <span class="g">[0.8111, 0.8197]</span>
+吃完塊1: m=2.0  l=1.3679  O=[1.0000, 0.3679]
+吃完塊2: m=3.0  l=1.5853  O=[1.2858, 1.2995]   <span class="c"># α=exp(2−3)=0.3679 把舊累積重定基準</span>
+O/l = <span class="g">[0.8111, 0.8197]</span>  → np.allclose(參考答案) = True   <span class="c"># 不是近似,是同一個數學</span></pre>
+
+  <div class="note warn">
+    <div class="t">負空間:decode 無感</div>
+    decode 的 Q 是 <code>[1, d]</code>——不存在 N² 中間物,FlashAttention 的招牌收益歸零。
+    decode 的搬債是<b>另一種</b>:每步掃讀整份 KV cache 與全部權重。那是第 4 章的戰場,
+    以及 KV 量化 / MLA(把 KV 壓進潛空間,DeepSeek 系
+    <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/attention/backends/mla">backends/mla/</a>)的地盤。
+    一句話:<b>先問你的 N² 在哪,再決定買不買這帖藥。</b>
+  </div>
+
+  <details><summary>選讀:vLLM 裡的版本與後端選擇</summary><div class="body">
+    <p>v2(2023)把 Q 移到外層迴圈、一個 thread block 從頭到尾擁有一個 Q tile;v3(2024)是 Hopper 專屬
+    (TMA、warp specialization、FP8)。vLLM 的 CUDA 後端:
+    <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/attention/backends/flash_attn.py#L674">flash_attn.py:674</a>(FA2/FA3)、
+    FlashInfer(decode 特化)、Triton 版,經 selector 按硬體挑
+    <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/attention/selector.py#L13">selector.py</a>。
+    完整演算法推導(rescale 代數、v2 迴圈翻轉、自測題)在《vLLM 之書》第 4 章。</p>
+  </div></details>
+</section>
+
+<hr class="hr">
+
+<!-- ================= 4 MOVE-DECODE ================= -->
+<section id="movedecode">
+  <div class="ch">第 4 章 · <span class="badge b-move">搬 move</span> × decode</div>
+  <h2>投機解碼:用一次搬運換 N 個 token</h2>
+  <p class="lead">回到 359×:decode 每個 token 都付一次「讀全部權重」的搬運費,而 causal attention
+  其實能在<b>一次</b> forward 裡平行評分 N 個位置——只要那 N 個 token 是已知的。投機解碼用便宜的草稿把
+  「未知的未來」變成「已知的假設」:<b>大模型一次驗 N 個,驗對幾個賺幾個</b>;數學上保證輸出分佈
+  與不猜完全相同。這是把 decode 偽裝成 prefill 的騙術,而且是合法的。</p>
+
+  <h3>4.1 三步驟</h3>
+  <div class="tblwrap"><table>
+    <tr><th>步</th><th>做什麼</th><th>成本</th></tr>
+    <tr><td>① 猜</td><td>草稿產 N 個候選(小模型 / EAGLE / <b>n-gram 查表——零參數</b>
+      <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/spec_decode/ngram_proposer.py#L12">ngram_proposer.py:12</a>)</td><td>遠小於一次目標 FP</td></tr>
+    <tr><td>② 驗</td><td>目標模型一次 forward 對 N 個位置產 logits——權重只搬一次</td><td>≈ 一次普通 decode 步(搬-bound 時)</td></tr>
+    <tr><td>③ 收</td><td>從左往右收割;第一個不合處由該位置 logit 出修正 token(免費)
+      <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/sample/rejection_sampler.py#L37">rejection_sampler.py:37</a></td><td>至少賺 1、至多 N+1 個 token</td></tr>
+  </table></div>
+
+  <h3>4.2 本機實測:2.86×</h3>
+  <div class="cap"><div class="ch2">實測 capture S <span class="why">— n-gram 投機(k=5)vs 基線;重複性任務;同卡同模型 batch=1</span></div>
+<pre>[S-base ] 256 tokens in 1121 ms -> <span class="g">228.5 tok/s</span>
+[S-ngram] 256 tokens in  392 ms -> <span class="g">653.7 tok/s</span>      ← <span class="g">2.86×</span>,零額外參數、零訓練</pre></div>
+
+  <div class="note warn">
+    <div class="t">誠實條款</div>
+    這個任務(逐字複述段落)是 n-gram 查表的<b>最佳情況</b>——草稿幾乎全中。一般聊天的接受率低得多,
+    典型收益 1.5–2.5×(EAGLE 系草稿)。最壞情況(全拒)是原速再多付草稿費,約慢 10–25%。
+    上限:接受率 × (N+1);它<b>只在搬-bound 的 regime 成立</b>——batch 已把算力吃滿時,
+    驗 N 個真的要 N 倍錢,此藥失效。
+  </div>
+
+  <h3>4.3 帳本聯動:誰替錯的草稿收屍</h3>
+  <p>verify pass 樂觀寫入全部 N 個位置的 KV;位置 i 被拒後,排程器回滾簿記
+  <code>num_computed_tokens −= num_rejected</code>
+  <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/core/sched/scheduler.py#L1501">scheduler.py:1501</a>,
+  被拒 slot 回收;快取端上限 <code>min(..., request.num_tokens)</code> 保證<b>未驗證草稿永不進前綴快取</b>——
+  第 2 章的共享池不會被猜錯的字污染。完整 KV 紀律(採樣不寫 KV、修正 token 下一輪免費補)見《vLLM 之書》第 6 章。</p>
+
+  <details><summary>選讀:草稿家族與同帳本的另一把刀</summary><div class="body">
+    <div class="tblwrap"><table>
+      <tr><th>草稿法</th><th>怎麼猜</th><th>錨</th></tr>
+      <tr><td>n-gram / prompt-lookup</td><td>在 prompt/歷史字串比對——上面 capture 用的就是它</td><td><a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/spec_decode/ngram_proposer.py#L12">ngram_proposer.py:12</a></td></tr>
+      <tr><td>EAGLE 系</td><td>掛在目標 hidden state 上的一層小 transformer</td><td><a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/spec_decode/eagle.py#L10">eagle.py:10</a></td></tr>
+      <tr><td>Medusa / MTP</td><td>多預測頭 / 模型原生多 token 輸出</td><td><a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/spec_decode/medusa.py#L18">medusa.py</a></td></tr>
+      <tr><td>Suffix tree</td><td>全域歷史後綴樹——n-gram 的一般化</td><td><a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/spec_decode/suffix_decoding.py#L9">suffix_decoding.py</a></td></tr>
+    </table></div>
+    <p><b>另一把刀——直接把位元組變少:</b>decode 每步除了權重還掃讀整份 KV。
+    <code>cache_dtype="fp8"</code>
+    <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/config/cache.py#L76">cache.py:76</a>
+    讓 KV 讀取量腰斬(同時還了「裝」的債);MLA 把 KV 壓進低維潛空間,是同一思路的架構版。
+    投機解碼省「權重讀取次數」,KV 量化省「每次讀取的位元組」——兩者正交,可疊加。</p>
+  </div></details>
+</section>
+<hr class="hr">
+
+<!-- ================= 5 WAIT ================= -->
+<section id="wait">
+  <div class="ch">第 5 章 · <span class="badge b-wait">等 wait</span></div>
+  <h2>融合與 CUDA Graphs:向啟動費宣戰</h2>
+  <p class="lead">decode 的一步是<b>幾百個微小 kernel</b>:80 層 × 每層若干個 RoPE、cache 寫入、norm、投影。
+  每個 kernel 有固定開工費(啟動 + 讀寫 HBM 一輪),而 batch 小時每個 kernel 只處理一把 token——
+  <b>開工費比工作本身還貴</b>。藥方兩帖:把幾張工單合成一張(融合),或干脆把整步的工單序列
+  錄影重播(CUDA Graphs)。</p>
+
+  <h3>5.1 案例:RoPE + KV 寫入融合</h3>
+  <p>每個 attention 層開場的兩件小事——旋轉 Q/K、把 K/V 寫進分頁快取——標準形是兩次 launch;
+  融合 pass 在 FX 圖上 pattern-match 改寫成一次
+  <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/compilation/passes/fusion/rope_kvcache_fusion.py#L46">rope_kvcache_fusion.py:46</a>:</p>
+<pre><span class="c"># 融合前 — 每層兩張工單;K 過兩趟 HBM(RoPE 寫出、cache update 讀回)</span>
+q, k = rotary_embedding(positions, q, k, cos_sin_cache, is_neox)
+unified_kv_cache_update(k, v, layer_name)
+<span class="c"># 融合後 — 一張;K 在暫存器裡轉完直接落到分頁 slot,80 層每步省 80 次 launch</span>
+<span class="g">fused_rope_and_unified_kv_cache_update(q, k, v, positions, cos_sin_cache, ...)</span></pre>
+
+  <p>兩個值得偷走的設計:</p>
+  <ul>
+    <li><b>≤256 token 才融合</b>
+      <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/config/compilation.py#L150">compilation.py:150</a>
+      —— 又是 regime 分界:大批次(prefill)是算-bound,兩個各自特調的 kernel 反而贏過一個妥協的融合 kernel。
+      「等」的藥只在「等」是病因時吃。</li>
+    <li><b>用 dummy tensor 釘住副作用順序</b> —— 融合 op 對編譯器是黑箱,cache 寫入不在資料流圖上;
+      op 宣告 <code>mutates_args</code> 並回傳一個下游 attention 消費的假張量,人工造出依賴邊,
+      防止 Inductor 把寫入重排到讀取之後。每層是否可融合由 backend 回報
+      <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/v1/attention/backend.py#L886">backend.py:886</a>(目前主要 ROCm/AITER)。</li>
+  </ul>
+
+  <h3>5.2 核彈:CUDA Graphs</h3>
+  <p>融合是逐張合併工單;CUDA Graph 直接把<b>一整步的 kernel 啟動序列</b>錄下來,之後每步一次 API 呼叫重播——
+  CPU 端的啟動成本近乎歸零。vLLM 由 <code>cudagraph_mode</code> 控制
+  <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/config/compilation.py#L590">compilation.py:590</a>:
+  attention 等自訂 op 是圖上的黑箱,所以有 <b>piecewise</b> 模式——黑箱之間的段落各自成圖。
+  代價:形狀必須固定(按 batch 大小分桶錄多份)、佔額外記憶體(裝的帳本)、開發時 <code>enforce_eager=True</code>
+  會把它整個關掉——<b>本書所有 capture 都是 eager 跑的,生產環境的 decode 比書中數字更快</b>。</p>
+
+  <details><summary>選讀:融合 pass 家族與 VllmBackend</summary><div class="body">
+    <p>同一套 pattern-match 機制上還掛著 RMSNorm+Quant、AllReduce+RMSNorm、Attention+Quant、
+    Activation+Quant、SP 改寫(把 TP 的 all_reduce 換成 reduce_scatter+all_gather,省中段冗餘
+    <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/compilation/passes/fusion/sequence_parallelism.py#L136">sequence_parallelism.py:136</a>)等,
+    開關集中在 <code>PassConfig</code>
+    <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/config/compilation.py#L139">compilation.py:139</a>。
+    底座是 <code>VllmBackend</code>——vLLM 插進 torch.compile 的自家後端(切圖、掛 pass、管 CUDA graph)
+    <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/compilation/backends.py#L800">backends.py:800</a>。
+    編譯管線全景與「lowering 路徑」分類學:<a href="lowering-explorer.html" target="_blank">Lowering-Path Explorer</a>
+    與《vLLM 之書》第 8–9 章。</p>
+  </div></details>
+</section>
+
+<hr class="hr">
+
+<!-- ================= 6 COMP ================= -->
+<section id="comp">
+  <div class="ch">第 6 章 · <span class="badge b-comp">算 comp</span> + <span class="badge b-fit">裝 fit</span></div>
+  <h2>LoRA:當形狀不配合硬體</h2>
+  <p class="lead">「算」的債很少是總 FLOPs 太多——通常是<b>形狀餵不飽硬體</b>。LoRA 是完美案例:
+  每個 adapter 只是兩片瘦矩陣(秩 r=8–64),數學上便宜到不像話,但 Tensor Core 的積木每維至少 ~16,
+  r=8 的收縮維讓它一半算力空轉;更糟的是多租戶批次裡<b>每一列要用不同的 adapter</b>,cuBLAS 根本沒有這種介面。
+  答案與 FlashAttention 同款:為這個形狀手寫 kernel。</p>
+
+  <h3>6.1 裝的那一半:一個底座,千個房客</h3>
+  <p>100 個客戶 × 70B 全微調 = 100 份 140 GB,經濟上不存在。LoRA 凍結底座、每客戶只帶
+  <code>ΔW ≈ B·A</code>(10–100 MB):<b>「裝」的帳本從 O(客戶數 × 模型) 降到 O(模型 + 客戶數 × adapter)</b>。
+  前提是 serving 時<b>不合併</b>(<code>y = Wx + (α/r)B(Ax)</code>)——合併回 W 就退化成一人一份。
+  adapter 的載入/預熱/驅逐由 manager 管
+  <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/lora/model_manager.py#L71">model_manager.py:71</a>。</p>
+
+  <h3>6.2 算的那一半:BGMV / SGMV</h3>
+<pre>標準 GEMV:  y = W·x                      整批共用一個 W
+<span class="g">BGMV:       y[i] = W[adapter_id[i]]·x[i]  批中每列各自索引自己的 adapter</span></pre>
+  <p>所有 adapter 打包進一大塊 HBM 張量、<code>adapter_id→offset</code> 查表、一次 launch 內各列讀各的分片
+  ——<b>5 個客戶的混合批次 ≈ 一次普通 GEMV 的成本</b>。SGMV 再解形狀問題:r 維歸約放進 shared memory
+  用一般 CUDA core 做(放棄餵不飽的 Tensor Core),按 adapter 分段打包攤掉啟動費
+  <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/lora/punica_wrapper/punica_base.py#L22">punica_base.py:22</a>。
+  雙 stream 執行把 LoRA 路徑疊到底座 GEMM 旁邊而非串在後面(<code>VLLM_LORA_ENABLE_DUAL_STREAM</code>
+  <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/envs.py#L284">envs.py:284</a>)——用「等」帳本的技巧付「算」的債。</p>
+
+  <div class="note">
+    <div class="t">同一個模式,到處都是</div>
+    「通用 kernel 在特化形狀上失效 → 手寫」是「算」帳本的萬用鑰匙:Marlin/Machete 之於 W4A16 反量化 GEMM、
+    fused MoE 之於「每 token 選 2 個專家」的稀疏批次、
+    <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/vllm/model_executor/layers/fused_moe/layer.py#L100">fused_moe/layer.py:100</a>、
+    Punica 之於 skinny LoRA。附錄目錄裡標 <span class="dot d-comp"></span> 的大多屬於這族。
+    LoRA 完整機制(B 零初始化、哈希隔離、七個掛點)在《vLLM 之書》第 7 章。
+  </div>
+</section>
+
+<hr class="hr">
+
+<!-- ================= 7 DECIDE ================= -->
+<section id="decide">
+  <div class="ch">第 7 章 · 決策</div>
+  <h2>服務慢——動哪裡?</h2>
+  <p class="lead">優化選錯帳本是白花錢:給算-bound 的 prefill 上投機解碼、給搬-bound 的 decode 換更強的
+  GEMM kernel,都是安慰劑。診斷永遠先於處方——<b>挑一個病徵</b>,看它被三個問題路由到哪本帳、哪帖藥。</p>
+
+  <div class="dtree">
+    <div class="dchips" id="dchips"></div>
+    <div id="dtreeBox"></div>
+    <div id="dverdict"></div>
+  </div>
+
+  <details><summary>自己量,別猜——三個一線指標</summary><div class="body">
+    <ul>
+      <li><b>TTFT vs ITL</b>:OpenAI 相容端點回 stream 時第一個 chunk 的延遲 vs 後續間隔;
+        或離線用本書 <code>capture_regime.py</code> 的方法直接量。</li>
+      <li><b>GPU 利用率 + 記憶體水位</b>:<code>nvidia-smi dmon</code>;利用率低而延遲高 → 等;
+        記憶體貼頂、log 出現 preemption → 裝(vLLM 會印 KV 池大小與 preemption 警告)。</li>
+      <li><b>vLLM 自帶指標</b>:prefix cache 命中率、佇列深度、preemption 次數——都在引擎的 metrics 輸出裡;
+        排程機制見《vLLM 之書》第 2 章。</li>
+    </ul>
+    <p class="mut">病徵常是複合的:OOM 逼你縮 batch,縮了 batch 吞吐掉進「搬」的坑——此時先還「裝」的債
+    (量化/分頁),batch 回來了,「搬」自然攤薄。這正是四本帳的連動,也是第 8 章地圖的讀法。</p>
+  </div></details>
+</section>
+<hr class="hr">
+
+<!-- ================= 8 LIVE MAP ================= -->
+<section id="map">
+  <div class="ch">第 8 章 · 全書合體</div>
+  <h2>一步 decode 的活地圖</h2>
+  <p class="lead">這是全書的收束:左邊是 <b>vLLM 一步 decode 的真實呼叫序列</b>(整理自
+  <code>EngineCore.step</code> 與 model runner 的執行順序),每一行按它付的帳上色;右邊是四本帳與攻擊它們的優化。
+  <b>點任一行</b>看它欠誰、誰攻它;<b>點右邊的帳本</b>反向亮起它名下的每一行。</p>
+
+  <div class="big">
+    <div class="bigcode">
+      <div class="capn">// 一步 decode(batch=B、L 層),依真實執行順序</div>
+      <div id="bigCode"></div>
+    </div>
+    <div class="bigmap" id="bigMap"></div>
+  </div>
+  <div id="bigDetail"></div>
+
+  <div class="note">
+    <div class="t">讀圖的三個收穫</div>
+    ① <b>琥珀色(搬)集中在迴圈內</b>——attention 讀 KV、GEMM 讀權重,這就是 decode 的本體,
+    也是為什麼第 4 章(讓一次搬運多產 token)與量化(讓每次搬運更少位元組)是 decode 最大的兩把刀。
+    ② <b>藍色(等)包住迴圈兩頭還滲進迴圈裡</b>——排程、廣播、攤平在前,對帳在後,層內還有 2L 個小 op;
+    batch 越小藍色佔比越高,這是第 5 章的地盤。
+    ③ <b>粉色(裝)不在時間線上</b>——它決定 B 能多大,從外面縮放整張圖的經濟性;這是第 2 章排最前的原因。
+  </div>
+</section>
+
+<hr class="hr">
+
+<!-- ================= APPENDIX ================= -->
+<section id="appendix">
+  <div class="ch">附錄</div>
+  <h2>帳本標記版總目錄</h2>
+  <p class="lead">vLLM 裡的優化遠不止前六章的主角。這裡按類別列出主要項目,每項標上它還的帳:
+  <span class="dot d-move"></span>搬 <span class="dot d-comp"></span>算
+  <span class="dot d-wait"></span>等 <span class="dot d-fit"></span>裝。
+  完整清單(200+ 項)見 <a class="src" target="_blank" href="https://github.com/jysh1214/vllm/blob/e35e4cf43cad9f01c486c6dee08e35b2a211173f/notes/optimizations/vllm_optimizations.md">notes/optimizations/vllm_optimizations.md</a>。</p>
+
+  <details><summary><span class="dot d-move"></span> Attention 內核(本書 Ch3)</summary><div class="body">
+    <p class="mut" style="font-size:13.5px">FlashAttention v2/v3 <span class="dot d-move"></span>、FlashInfer(decode 特化)<span class="dot d-move"></span>、
+    Triton / Flex attention <span class="dot d-move"></span>、MLA + MLA Sparse(KV 壓縮,DeepSeek)<span class="dot d-move"></span><span class="dot d-fit"></span>、
+    Sliding window / chunked local(截斷 KV 範圍)<span class="dot d-move"></span><span class="dot d-fit"></span>、
+    cascade attention(共享前綴只算一次)<span class="dot d-move"></span>、fused QK-Norm+RoPE <span class="dot d-wait"></span>、
+    merge attn states <span class="dot d-wait"></span>、ROCm AITER 全家。</p>
+  </div></details>
+  <details><summary><span class="dot d-fit"></span> KV Cache(本書 Ch2)</summary><div class="body">
+    <p class="mut" style="font-size:13.5px">Paged blocks <span class="dot d-fit"></span>、hash 前綴快取 <span class="dot d-fit"></span><span class="dot d-comp"></span>、
+    chunked prefill(prefill/decode 互不餓死)<span class="dot d-wait"></span>、KV 量化 FP8/INT8/FP4 <span class="dot d-fit"></span><span class="dot d-move"></span>、
+    copy-on-write <span class="dot d-fit"></span>、CPU offload <span class="dot d-fit"></span>、KV connectors(P/D 分離:NIXL / LMCache / MoonCake)<span class="dot d-fit"></span>、
+    hybrid allocator(sliding-window/mamba 分組)<span class="dot d-fit"></span>。</p>
+  </div></details>
+  <details><summary><span class="dot d-comp"></span> 量化(搬/算/裝三賺)</summary><div class="body">
+    <p class="mut" style="font-size:13.5px">權重:FP8、AWQ(-Marlin)、GPTQ(-Marlin)、GGUF、compressed-tensors、MXFP4/NVFP4、bitsandbytes
+    <span class="dot d-fit"></span><span class="dot d-move"></span>;
+    kernel:Marlin / Machete(W4A16 反量化 GEMM)<span class="dot d-comp"></span>;
+    活化:W8A8、SmoothQuant、fused act+quant / norm+quant <span class="dot d-comp"></span><span class="dot d-wait"></span>;
+    KV:見上。原則:位元組減半 → 搬與裝同時減半,代價是反量化的算與精度風險。</p>
+  </div></details>
+  <details><summary><span class="dot d-fit"></span> 平行化與 MoE</summary><div class="body">
+    <p class="mut" style="font-size:13.5px">TP(切矩陣;代價 2×all-reduce/層)<span class="dot d-fit"></span><span class="dot d-wait"></span>、
+    PP(切層)<span class="dot d-fit"></span>、DP(複本)、EP(切專家;all-to-all)<span class="dot d-fit"></span>、
+    SP 改寫(省 TP 中段冗餘)<span class="dot d-move"></span><span class="dot d-fit"></span>、async TP(GEMM 與通訊重疊)<span class="dot d-wait"></span>、
+    fused MoE / grouped GEMM / DeepGEMM <span class="dot d-comp"></span>、DeepEP all-to-all(HT=prefill、LL=decode)<span class="dot d-wait"></span>、
+    EPLB 專家重平衡 <span class="dot d-comp"></span>。機制全景:《vLLM 之書》第 5 章。</p>
+  </div></details>
+  <details><summary><span class="dot d-move"></span> 投機解碼(本書 Ch4)</summary><div class="body">
+    <p class="mut" style="font-size:13.5px">n-gram(零參數,capture S 實測 2.86×)、EAGLE/EAGLE-3、Medusa、MTP、suffix tree、
+    rejection sampler(數學正確性)、draft warmup。全部 <span class="dot d-move"></span>,全部只在 decode/搬-bound 生效。</p>
+  </div></details>
+  <details><summary><span class="dot d-wait"></span> 編譯與融合(本書 Ch5)</summary><div class="body">
+    <p class="mut" style="font-size:13.5px">VllmBackend(切圖+pass+graph 管理)、CUDA Graphs full/piecewise <span class="dot d-wait"></span>、
+    融合 pass 家族(RoPE+KV、RMSNorm+Quant、AllReduce+RMSNorm、Attention+Quant…)<span class="dot d-wait"></span><span class="dot d-move"></span>、
+    compile cache、max-autotune。lowering 全枚舉:<a href="lowering-explorer.html" target="_blank">explorer</a>。</p>
+  </div></details>
+  <details><summary><span class="dot d-wait"></span> 排程、通訊、取樣</summary><div class="body">
+    <p class="mut" style="font-size:13.5px">continuous batching(湧現,非功能)<span class="dot d-fit"></span><span class="dot d-move"></span>、
+    priority/FCFS、async scheduling <span class="dot d-wait"></span>、分離式 P/D <span class="dot d-fit"></span>;
+    custom all-reduce(小張量 one-shot)<span class="dot d-wait"></span>、shm broadcast <span class="dot d-wait"></span>、pynccl;
+    FlashInfer sampling、fused top-k/p、persistent topk <span class="dot d-comp"></span>、結構化輸出 xGrammar(DFA 快取)<span class="dot d-comp"></span>。</p>
+  </div></details>
+  <details><summary><span class="dot d-comp"></span> LoRA 與形狀特化(本書 Ch6)</summary><div class="body">
+    <p class="mut" style="font-size:13.5px">Punica BGMV/SGMV <span class="dot d-comp"></span>、multi-LoRA batching <span class="dot d-fit"></span>、
+    dual-stream <span class="dot d-wait"></span>、adapter manager/resolver;同族:Marlin、fused MoE、
+    Mamba/SSM 專用 kernel、RoPE 十餘種變體的 fused 實作。</p>
+  </div></details>
+</section>
+
+<hr class="hr">
+
+<!-- ================= COLOPHON ================= -->
+<section id="colophon">
+  <div class="ch">Reference</div>
+  <h2>Colophon:如何驗證本書</h2>
+  <p>釘選 <a target="_blank" href="https://github.com/jysh1214/vllm/tree/e35e4cf43cad9f01c486c6dee08e35b2a211173f">jysh1214/vllm @ e35e4cf43</a>
+  (branch <code>alexchiang/notes</code>,rebase 於 upstream main 之後)。每顆藥丸都是該 commit 的 permalink;
+  行號在新版會漂移,漂了就搜符號名(校正腳本:<code>books/captures/verify_anchors.py</code>,97 個錨點的驗證記錄見
+  <a href="index.html#colophon">《vLLM 之書》Colophon</a>)。</p>
+
+  <h4>重現所有 capture</h4>
+<pre><span class="c"># R — prefill vs decode 每 token 成本(第 1 章,359×)</span>
+.venv/bin/python books/captures/capture_regime.py
+<span class="c"># S — n-gram 投機解碼 vs 基線(第 4 章,2.86×)</span>
+.venv/bin/python books/captures/capture_spec.py base
+.venv/bin/python books/captures/capture_spec.py ngram
+<span class="c"># E — 前綴快取三輪(第 2 章,0/144/160)</span>
+.venv/bin/python books/captures/capture_e2e.py
+<span class="c"># online softmax 數值(第 3 章)</span>
+.venv/bin/python books/captures/softmax_online.py</pre>
+
+  <div class="note warn">
+    <div class="t">誠實條款(全書適用)</div>
+    <ul style="margin:6px 0">
+      <li>所有量測:單卡 RTX 4090、Qwen2.5-0.5B-Instruct、<code>enforce_eager</code>、batch=1、greedy——
+        <b>證明機制存在,不代表生產部署的數字</b>;生產環境開 CUDA Graphs 後 decode 基線更快。</li>
+      <li>capture S 的任務(逐字複述)是 n-gram 草稿的最佳情況;一般負載收益顯著低於 2.86×。</li>
+      <li>TP/PP/EP 在本機(單卡)無法實測,相關宣稱只錨定原始碼,未附量測。</li>
+      <li>第 1 章「信封背面」的頻寬/FLOPs 為規格書量級估算,非量測;359× 才是量測值。</li>
+      <li>環境:<code>vllm 0.1.dev18451+ge35e4cf43</code>(editable)、torch 2.11.0+cu130、CUDA 13.0、Python 3.12.13。生成日期 2026-07-07。</li>
+    </ul>
+  </div>
+  <p class="mut">素材:<code>notes/optimizations/</code> 六份筆記(本書為其「經濟學重組+實測」版);
+  系統機制的姊妹書:<a href="index.html">《vLLM 之書 — 一個 Request 的旅程》</a>。
+  指令與數字不合時,以你機器上跑出來的為準——這正是錨定一切的意義。</p>
+</section>
+
+</main>
+</div>
+
+<footer>vLLM 優化之書 — 四本帳,一場預算戰 · jysh1214/vllm@e35e4cf43 · 每個宣稱都有錨;驗證,而非信任。</footer>
+
+<script>
+"use strict";
+const SHA="e35e4cf43cad9f01c486c6dee08e35b2a211173f";
+const GH="https://github.com/jysh1214/vllm/blob/"+SHA+"/";
+const pill=(p,l)=>`<a class="src" target="_blank" href="${GH}${p}#L${l}">${p.split("/").pop()}:${l}</a>`;
+
+/* ---------- Ch1 pipeline ---------- */
+const STAGES=[
+ {t:"排程(CPU)",d:"挑批次、配 KV block",b:"wait",path:"vllm/v1/core/sched/scheduler.py",line:396,
+  body:`純 CPU 簿記:兩階段分 token 預算、向 KVCacheManager 要 block、打包 SchedulerOutput。單步幾十 µs 量級,但它決定了 <b>B(batch)</b>——右邊每一站的經濟性都被它縮放。機制全文:《vLLM 之書》第 2 章。`},
+ {t:"Prefill",d:"一次吃完 prompt",b:"comp",path:"vllm/v1/attention/backends/flash_attn.py",line:674,
+  body:`一次 forward 對 N 個位置並行:權重讀一次攤 N 份,算術強度高 → <span class="badge b-comp">算</span>-bound。實測 <b>14.6 µs/token</b>。唯一的搬運陷阱是 attention 的 [N,N] 中間物——第 3 章 FlashAttention 的獵物。`},
+ {t:"Decode × N",d:"每步一個 token",b:"move",path:"vllm/v1/worker/gpu_model_runner.py",line:1910,
+  body:`每步把全部權重 + 整份 KV 從 HBM 讀一遍,換一個 token:<span class="badge b-move">搬</span>-bound,實測 <b>5.25 ms/token(359×)</b>。藥:投機解碼(Ch4)、KV/權重量化、疊 batch(續批)。batch 小時「等」也顯形(Ch5)。`},
+ {t:"取樣 + 串流",d:"logits → token → client",b:"wait",path:"vllm/v1/sample/sampler.py",line:20,
+  body:`top-k/p、懲罰、結構化輸出遮罩——小而雜,fused kernel 處理;然後對帳(<code>update_from_output</code> ${pill("vllm/v1/core/sched/scheduler.py",1501)})與 ZMQ 串流回 client。單項便宜,乘上每步每請求就是「等」帳本的常客。`},
+];
+const pipeEl=document.getElementById("pipe"),sdEl=document.getElementById("stageDetail");
+const BNAME={move:"搬",comp:"算",wait:"等",fit:"裝"};
+function renderPipe(){pipeEl.innerHTML="";
+ STAGES.forEach((s,i)=>{const d=document.createElement("div");d.className="stage"+(i===0?" sel":"");
+  d.innerHTML=`<div class="st">${i+1}. ${s.t} <span class="badge b-${s.b}">${BNAME[s.b]}</span></div><div class="sd">${s.d}</div>`;
+  d.onclick=()=>selStage(i);pipeEl.appendChild(d);});}
+function selStage(i){
+ document.querySelectorAll(".stage").forEach((e,j)=>e.classList.toggle("sel",j===i));
+ const s=STAGES[i];sdEl.innerHTML=`<div class="hd"><span class="ttl">${i+1} · ${s.t}</span>${pill(s.path,s.line)}</div><div class="bd">${s.body}</div>`;}
+renderPipe();selStage(0);
+
+/* ---------- Ch7 decision tree ---------- */
+const QS=[
+ {ql:"Q1 — 首字慢(TTFT 高)?",qs:"病在 prefill:一次性的大批次計算",
+  out:{cls:"o-comp",txt:`<span class="badge b-comp">算</span>(偶帶搬)— prefill 側處方`}},
+ {ql:"Q2 — OOM,或 batch 加不上去?",qs:"病在容量:KV 池 / 權重把 HBM 吃滿",
+  out:{cls:"o-fit",txt:`<span class="badge b-fit">裝</span> — 容量處方;還完這本帳,吞吐常自己回來`}},
+ {ql:"Q3 — GPU 利用率低,延遲卻高?",qs:"病在開銷:launch / CPU / 同步佔比過大",
+  out:{cls:"o-wait",txt:`<span class="badge b-wait">等</span> — 開銷處方`}},
+ {ql:"否則:字間慢(ITL 高)",qs:"decode 的預設債主",
+  out:{cls:"o-move",txt:`<span class="badge b-move">搬</span> — decode 頻寬處方`}},
+];
+const SYMPTOMS=[
+ {n:"長 prompt 首字要 3 秒",route:[true],
+  v:`<b>→ 算(prefill)。</b>先確認 FlashAttention 後端已生效(CUDA 預設);長 prompt 檢查 chunked prefill 的
+  <code>max_num_batched_tokens</code> ${pill("vllm/config/scheduler.py",49)} 是否把 prefill 切得太碎;
+  多請求共享的 system prompt → 前綴快取直接砍掉重複 prefill(Ch2,capture E);單卡塞不下的模型 → TP 分攤算力。`},
+ {n:"同一個 system prompt,每次都重算",route:[true],
+  v:`<b>→ 算(prefill),但藥在「裝」的副產品。</b>前綴快取預設開啟——若沒命中,查:prompt 是否逐字節相同
+  (多模態、LoRA id、cache salt 會折進哈希 ${pill("vllm/v1/core/kv_cache_utils.py",539)});
+  是否遭驅逐(池太小 → 提高 <code>gpu_memory_utilization</code>)。驗證方法:讀 <code>num_cached_tokens</code>(capture E 的做法)。`},
+ {n:"字與字之間 50ms(ITL 高)",route:[false,false,false],
+  v:`<b>→ 搬(decode)。</b>按報酬率:① 開 CUDA Graphs(關掉 <code>enforce_eager</code>)先把「等」的雜訊清掉;
+  ② 輸出可預測的負載上投機解碼(Ch4,capture S:2.86×);③ KV 量化 <code>cache_dtype="fp8"</code> ${pill("vllm/config/cache.py",76)};
+  ④ 權重量化(AWQ/GPTQ/FP8)。體感目標:5.25ms/token 的量級(本書 4090+0.5B eager 基線)壓向 1-2ms。`},
+ {n:"輸出長且高度重複(改寫/抽取/翻譯)",route:[false,false,false],
+  v:`<b>→ 搬(decode)的特化好局。</b>n-gram 投機解碼零參數零訓練,配置一行:
+  <code>speculative_config={"method":"ngram", "num_speculative_tokens":5, "prompt_lookup_max":5}</code>
+  ${pill("vllm/v1/spec_decode/ngram_proposer.py",12)}。本書實測這類任務 <b>2.86×</b>(capture S)。輸出不重複的負載換 EAGLE ${pill("vllm/v1/spec_decode/eagle.py",10)}。`},
+ {n:"OOM,或只能開到 batch=4",route:[false,true],
+  v:`<b>→ 裝。</b>① KV 量化 fp8:池容量翻倍 ${pill("vllm/config/cache.py",76)};② 權重量化:70B@W4 省 ~100GB;
+  ③ 檢查 <code>max_model_len</code> 是否過度預留;④ log 出現 preemption → 池不夠,調 <code>gpu_memory_utilization</code> 或 TP 攤到多卡;
+  ⑤ 長尾閒置請求 → CPU offload。還完裝的債,batch 上去,「搬」自動攤薄——這是四本帳的連動。`},
+ {n:"GPU 利用率 30%,吞吐也低",route:[false,false,true],
+  v:`<b>→ 等。</b>最常見的三個兇手:① <code>enforce_eager=True</code> 留在生產(CUDA Graphs 沒開,${pill("vllm/config/compilation.py",590)});
+  ② batch 太小 → 檢查上游併發與 <code>max_num_seqs</code>;③ CPU 端瓶頸(tokenize/排程/detokenize)——
+  看 CPU 單核是否吃滿。融合 pass(Ch5)是錦上添花,先抓大頭。`},
+ {n:"幾百個客戶,各自 LoRA 微調",route:[false,true],
+  v:`<b>→ 裝 + 算。</b>不合併、multi-LoRA 批次(Ch6):底座一份 + 每客戶 10-100MB adapter;
+  Punica BGMV/SGMV 讓混合批次 ≈ 單一 GEMV 成本 ${pill("vllm/lora/punica_wrapper/punica_base.py",22)};
+  排程端 <code>max_loras</code> 控制同時駐留的 adapter 數;真正的高峰客戶可為其 pre-merge 專屬部署。`},
+];
+const chipsEl=document.getElementById("dchips"),treeEl=document.getElementById("dtreeBox"),verEl=document.getElementById("dverdict");
+SYMPTOMS.forEach((o,i)=>{const c=document.createElement("span");c.className="dchip";c.textContent=o.n;
+ c.onclick=()=>selSym(i);chipsEl.appendChild(c);});
+function renderTree(route){
+ let h="";
+ QS.forEach((q,qi)=>{
+   const visited=route!==null&&qi<route.length;
+   const yes=visited&&route[qi]===true;
+   const isLast=qi===QS.length-1;
+   h+=`<div class="drow">
+     <div class="dq ${visited?"lit":""}"><div class="ql">${q.ql}</div><div class="qs">${q.qs}</div></div>
+     <div class="dyes"><div class="dout ${q.out.cls} ${(yes||(isLast&&visited))?"lit":""}">${q.out.txt}</div></div>
+   </div>`;
+   if(!isLast)h+=`<div class="dconn ${visited&&route[qi]===false?"lit":""}"><div class="vl"></div><div class="lbl">否 ↓</div><div class="vl"></div></div>`;
+ });
+ treeEl.innerHTML=h;
+}
+function dverdictDefault(){
+ verEl.innerHTML=`<span class="mut">在上方挑一個病徵。路由規則:TTFT 病走算/prefill;容量病走裝;利用率病走等;剩下的 ITL 病——decode 的預設債主——走搬。</span>`;}
+function selSym(i){
+ document.querySelectorAll(".dchip").forEach((e,j)=>e.classList.toggle("on",j===i));
+ const o=SYMPTOMS[i];renderTree(o.route);verEl.innerHTML=o.v;}
+renderTree(null);dverdictDefault();
+
+/* ---------- Ch8 live map ---------- */
+const LINES=[
+ {code:"scheduler.schedule()                    # 兩階段分預算、配 KV",led:"wait",
+  t:"排程:計畫這一步",path:"vllm/v1/core/sched/scheduler.py",line:396,
+  d:`純 CPU。成本 O(running requests),1K+ 請求時是已知熱路徑。攻擊:async scheduling(與上一步 GPU 執行重疊)、SchedulerOutput 的 new/cached 差分打包(只送增量)。`},
+ {code:"MessageQueue.broadcast(SchedulerOutput) # 行程間廣播",led:"wait",
+  t:"廣播:計畫送到每個 worker",path:"vllm/distributed/device_communicators/shm_broadcast.py",line:365,
+  d:`節點內走共享記憶體環形緩衝,不過網路、不序列化兩次。攻擊:它本身就是優化(取代 per-worker socket)。`},
+ {code:"_prepare_inputs(): block table / slots  # 攤平成張量",led:"wait",
+  t:"攤平:簿記變張量",path:"vllm/v1/worker/gpu_model_runner.py",line:1910,
+  d:`把 SchedulerOutput 翻成 GPU 張量(token ids、positions、slot mapping、block tables)。攻擊:persistent buffers(原地增量更新而非重建)、CUDA Graph 的固定位址要求也在這裡滿足。`},
+ {code:"for layer in range(L):",led:"none",t:"",path:"",line:0,d:""},
+ {code:"  rope(q,k); write_kv_to_paged_cache()  # 2 個小 op × L 層",led:"wait",
+  t:"旋轉+寫入:每層的簿記小事",path:"vllm/compilation/passes/fusion/rope_kvcache_fusion.py",line:46,
+  d:`batch 小時純開銷:2L 次 launch、K 過兩趟 HBM。攻擊:RoPE+KV 融合(Ch5)砍半 launch、K 一趟落地;≤256 token 的 regime 閘門。`},
+ {code:"  attn: 讀整份 KV cache → 1 token 的注意力",led:"move",
+  t:"Attention:decode 搬債之一",path:"vllm/v1/attention/backends/flash_attn.py",line:674,
+  d:`每步掃讀該請求全部歷史的 K/V。攻擊:KV 量化 fp8(位元組減半)、MLA(壓進潛空間)、sliding window(截斷範圍)、cascade attention(共享前綴的 KV 只讀一次)、FlashInfer decode 特化 kernel。分頁定址由 kernel 原生支援(Ch2)。`},
+ {code:"  GEMM ×~7: QKVO + MLP  ← 讀全部權重",led:"move",
+  t:"GEMM:decode 搬債之二(大頭)",path:"vllm/model_executor/layers/linear.py",line:397,
+  d:`B=1 時讀 1GB 權重換 1 token 的矩陣乘——第 1 章 359× 的本體。攻擊:<b>疊 batch</b>(continuous batching,籌碼來自 Ch2 的裝)、<b>投機解碼</b>(一次搬運驗 N 個,Ch4)、<b>權重量化</b>(位元組砍到 1/2~1/4)。batch 夠大後轉綠(算),換 Marlin/Machete 這類 kernel 上場。`},
+ {code:"  all_reduce ×2            # 僅 TP>1",led:"wait",
+  t:"TP 通訊:每層兩次",path:"csrc/libtorch_stable/custom_all_reduce.cu",line:1,
+  d:`decode 的張量小,延遲敏感。攻擊:custom all-reduce one-shot kernel(小張量走 NVLink 直寫)、SP 改寫省中段冗餘、async TP 與 GEMM 重疊。單卡部署此行不存在——TP 是用「等」買「裝」。`},
+ {code:"sampler(logits)                          # top-k/p、懲罰、文法",led:"comp",
+  t:"取樣:小而雜的算",path:"vllm/v1/sample/sampler.py",line:20,
+  d:`對 [B, vocab] 的 logits 做 top-k/p、懲罰、結構化輸出遮罩。攻擊:fused/persistent topk kernel、FlashInfer sampling;投機模式下換 rejection sampler(保分佈正確)。`},
+ {code:"scheduler.update_from_output()           # 對帳、停止偵測、串流",led:"wait",
+  t:"對帳:計畫遇上現實",path:"vllm/v1/core/sched/scheduler.py",line:1501,
+  d:`寫回採樣結果、偵測 EOS/stop、釋放完成請求、回滾被拒的投機 token。1K+ 項的迴圈,刻意避免每項昂貴操作。`},
+];
+const COLS=[
+ {led:"move",cap:"搬 move",items:["投機解碼(Ch4)","KV 量化 fp8","權重量化","MLA / sliding window","cascade attention","續批疊 batch"]},
+ {led:"comp",cap:"算 comp",items:["FlashAttention(Ch3,prefill)","Marlin / Machete","fused MoE","Punica SGMV(Ch6)","fused sampling"]},
+ {led:"wait",cap:"等 wait",items:["RoPE+KV 融合(Ch5)","CUDA Graphs","融合 pass 家族","custom all-reduce","shm broadcast","async scheduling"]},
+ {led:"fit",cap:"裝 fit",items:["PagedAttention(Ch2)","前綴快取","KV/權重量化","LoRA 多租戶(Ch6)","CPU offload","TP 分攤"]},
+];
+const bigCodeEl=document.getElementById("bigCode"),bigMapEl=document.getElementById("bigMap"),bigDetEl=document.getElementById("bigDetail");
+let curLine=-1;
+function renderBig(){
+ bigCodeEl.innerHTML="";
+ LINES.forEach((l,i)=>{
+  const s=document.createElement("span");
+  s.className="cl"+(l.led==="none"?"":" op l-"+l.led+(i===curLine?" hi":""));
+  s.textContent=l.code;
+  if(l.led!=="none")s.onclick=()=>selLine(i);
+  bigCodeEl.appendChild(s);});
+ bigMapEl.innerHTML="";
+ COLS.forEach(c=>{
+  const col=document.createElement("div");
+  col.className="bcol"+((curLine>=0&&LINES[curLine].led===c.led)?" hi":"");
+  col.innerHTML=`<div class="bcap c-${c.led}">${c.cap}</div>`+c.items.map(x=>`<div class="bnode">${x}</div>`).join("");
+  col.onclick=()=>selLedger(c.led);
+  bigMapEl.appendChild(col);});
+}
+function selLine(i){
+ curLine=(curLine===i)?-1:i;renderBig();
+ if(curLine<0){bigDetEl.innerHTML="";return;}
+ const l=LINES[i];
+ bigDetEl.innerHTML=`<div class="hd"><span class="ttl"><span class="badge b-${l.led}">${BNAME[l.led]}</span>${l.t}</span>${l.line?pill(l.path,l.line):""}</div><div class="bd">${l.d}</div>`;
+ }
+function selLedger(led){
+ curLine=-1;
+ bigCodeEl.querySelectorAll(".cl.op").forEach((el,idx)=>{});
+ renderBig();
+ /* highlight all lines of this ledger */
+ let n=0;
+ bigCodeEl.querySelectorAll(".cl.op").forEach(el=>{if(el.classList.contains("l-"+led)){el.classList.add("hi");n++;}});
+ bigMapEl.querySelectorAll(".bcol").forEach((el,i)=>el.classList.toggle("hi",COLS[i].led===led));
+ const c=COLS.find(c=>c.led===led);
+ const EXPL={
+  move:`decode 時間線的本體:attention 讀 KV + GEMM 讀權重。兩條攻擊軸:讓一次搬運多產出(投機、續批),或讓每次搬運更少位元組(量化、MLA)。`,
+  comp:`prefill 與大 batch 的主帳。attention 的 N² 交給 FlashAttention;形狀不合作的(W4A16、MoE、LoRA)交給手寫 kernel。`,
+  wait:`包住迴圈兩頭、滲進迴圈內的固定開銷。batch 越小佔比越高——小模型/低延遲部署先還這本帳。`,
+  fit:`不在時間線上,但決定 B——右邊每本帳的分母。OOM 或 batch 上不去時,先還它。`};
+ bigDetEl.innerHTML=`<div class="hd"><span class="ttl"><span class="badge b-${led}">${BNAME[led]}</span>這本帳名下的時間線(亮起 ${n} 行)</span></div><div class="bd">${EXPL[led]}</div>`;
+}
+renderBig();
+
+/* ---------- scrollspy ---------- */
+const spy=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id="#"+e.target.id;
+ document.querySelectorAll("nav.toc a").forEach(a=>a.classList.toggle("active",a.getAttribute("href")===id));}});},
+ {rootMargin:"-20% 0px -70% 0px"});
+document.querySelectorAll("main > section").forEach(s=>spy.observe(s));
+</script>
+</body>
+</html>
