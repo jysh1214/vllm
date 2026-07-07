@@ -1,0 +1,991 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>torch → vLLM → Inductor → Triton — a call-flow book</title>
+<style>
+:root{
+  --bg:#f7f7f9; --panel:#ffffff; --ink:#1c1e26; --mut:#5b6070; --line:#e2e3ea;
+  --s1:#7c6cf0;   /* torch.compile / Dynamo front-end */
+  --s2:#12a594;   /* vLLM backend: split / piecewise / cudagraph */
+  --s3:#e0952b;   /* Inductor */
+  --cuda:#e0518a; /* Triton terminal (CUDA) */
+  --cpu:#3b82f6;  /* C++/OpenMP terminal (CPU) */
+  --code:#f4f4f8; --codeink:#242731; --hl:#fff4c4; --ok:#1f9d57; --warn:#c9541c;
+  --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0e0f14; --panel:#171922; --ink:#e7e8ee; --mut:#9aa0b0; --line:#282b38;
+  --code:#12141b; --codeink:#d6d8e0; --hl:#4a4020; --s3:#e0a545;
+}}
+:root[data-theme="light"]{--bg:#f7f7f9;--panel:#fff;--ink:#1c1e26;--mut:#5b6070;--line:#e2e3ea;--code:#f4f4f8;--codeink:#242731;--hl:#fff4c4;}
+:root[data-theme="dark"]{--bg:#0e0f14;--panel:#171922;--ink:#e7e8ee;--mut:#9aa0b0;--line:#282b38;--code:#12141b;--codeink:#d6d8e0;--hl:#4a4020;--s3:#e0a545;}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:0 20px 120px}
+h1,h2,h3{line-height:1.22;font-weight:680;letter-spacing:-.01em}
+h1{font-size:2.05rem;margin:.2em 0 .1em}
+h2{font-size:1.5rem;margin:2.4em 0 .5em;padding-top:.4em}
+h3{font-size:1.12rem;margin:1.6em 0 .3em}
+p{margin:.6em 0}
+a{color:var(--s1);text-decoration:none}a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.86em;background:var(--code);color:var(--codeink);
+  padding:.08em .34em;border-radius:5px;border:1px solid var(--line)}
+pre{margin:0;background:var(--code);color:var(--codeink);border:1px solid var(--line);
+  border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:var(--mono);
+  font-size:12.5px;line-height:1.55}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+.mut{color:var(--mut)}
+.lead{font-size:1.12rem;color:var(--ink);background:var(--panel);border:1px solid var(--line);
+  border-left:4px solid var(--s1);border-radius:0 10px 10px 0;padding:14px 18px;margin:1em 0}
+.lead b{color:var(--s1)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:1.1em 0}
+.hero{background:linear-gradient(135deg,color-mix(in srgb,var(--s1) 12%,var(--panel)),var(--panel) 60%);}
+/* ---- sticky spine ---- */
+.spine{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 86%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);margin:0 -20px 0;padding:9px 20px}
+.spine .row{max-width:900px;margin:0 auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.stage{font:600 12px/1 var(--mono);padding:6px 9px;border-radius:20px;border:1px solid var(--line);
+  background:var(--panel);cursor:pointer;color:var(--ink);white-space:nowrap;display:inline-flex;gap:6px;align-items:center}
+.stage:hover{transform:translateY(-1px)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.arrow{color:var(--mut);font-size:12px}
+.d1{background:var(--s1)}.d2{background:var(--s2)}.d3{background:var(--s3)}
+.dcuda{background:var(--cuda)}.dcpu{background:var(--cpu)}
+.theme{margin-left:auto;font:600 11px/1 var(--mono);cursor:pointer;border:1px solid var(--line);
+  background:var(--panel);color:var(--mut);border-radius:20px;padding:6px 10px}
+/* ---- tags ---- */
+.tag{font:600 10.5px/1 var(--mono);padding:3px 7px;border-radius:5px;color:#fff;letter-spacing:.02em;white-space:nowrap}
+.t1{background:var(--s1)}.t2{background:var(--s2)}.t3{background:var(--s3)}
+.tcuda{background:var(--cuda)}.tcpu{background:var(--cpu)}
+.anchor{font-family:var(--mono);font-size:11px;color:var(--mut);background:var(--code);
+  border:1px solid var(--line);border-radius:5px;padding:2px 6px;white-space:nowrap}
+.env{display:grid;grid-template-columns:auto 1fr;gap:2px 16px;font-family:var(--mono);font-size:12.5px}
+.env b{color:var(--mut);font-weight:500}
+/* ---- step-through ---- */
+.trace{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+.phbar{display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--line)}
+.phbar div{flex:1;min-width:70px;text-align:center;font:600 10px/1.3 var(--mono);padding:7px 4px;color:var(--mut);border-right:1px solid var(--line);cursor:pointer}
+.phbar div:last-child{border-right:0}
+.phbar div.on{color:#fff}
+.stepbody{padding:20px}
+.stepbody .num{font:700 12px/1 var(--mono);color:var(--mut)}
+.stepbody h4{margin:.35em 0 .15em;font-size:1.06rem}
+.stepnav{display:flex;gap:10px;align-items:center;margin-top:14px}
+.btn{font:600 13px/1 inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  border-radius:8px;padding:9px 14px;cursor:pointer}
+.btn:hover{border-color:var(--s1)}
+.btn[disabled]{opacity:.4;cursor:default}
+.prog{flex:1;height:5px;background:var(--line);border-radius:3px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--s2);transition:width .25s}
+/* ---- select-to-highlight ---- */
+.splitgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.splitgrid{grid-template-columns:1fr}.st4{grid-template-columns:1fr!important}}
+.node{font:600 12px/1.3 var(--mono);padding:8px 10px;border-radius:8px;border:1px solid var(--line);
+  background:var(--panel);cursor:pointer;margin:5px 0;transition:.12s}
+.node:hover{border-color:var(--s2)}
+.node.sel{outline:2px solid var(--s2);outline-offset:1px}
+.node.attn{border-left:4px solid var(--cuda)}
+.node.comp{border-left:4px solid var(--s3)}
+.codeln{display:block;padding:1px 6px;border-radius:4px}
+.codeln.on{background:var(--hl)}
+.detail{margin-top:12px;padding:12px 14px;border:1px dashed var(--line);border-radius:9px;
+  background:var(--code);font-size:14px;min-height:44px}
+/* ---- tabs ---- */
+.tabs{display:flex;gap:6px;margin-bottom:-1px}
+.tab{font:600 12.5px/1 var(--mono);padding:9px 14px;border:1px solid var(--line);border-bottom:0;
+  border-radius:9px 9px 0 0;background:var(--code);color:var(--mut);cursor:pointer}
+.tab.on{background:var(--panel);color:var(--ink)}
+.tab.on.cuda{box-shadow:inset 0 3px 0 var(--cuda)}
+.tab.on.cpu{box-shadow:inset 0 3px 0 var(--cpu)}
+.pane{border:1px solid var(--line);border-radius:0 10px 10px 10px;padding:16px;background:var(--panel)}
+.pane.hide{display:none}
+/* ---- taxonomy table ---- */
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin:.5em 0}
+th,td{border:1px solid var(--line);padding:7px 9px;text-align:left}
+th{background:var(--code);font:600 12px/1.3 var(--mono);color:var(--mut)}
+td code{font-size:12px}
+.st4{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+/* ---- foldable ---- */
+details{border:1px solid var(--line);border-radius:10px;margin:.7em 0;background:var(--panel);overflow:hidden}
+summary{cursor:pointer;padding:11px 15px;font-weight:600;font-size:14px;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸ ";color:var(--mut)}
+details[open] summary::before{content:"▾ "}
+details .in{padding:0 15px 14px}
+/* ---- self-test ---- */
+.q{border:1px solid var(--line);border-radius:10px;margin:.7em 0;background:var(--panel)}
+.q>div.qt{padding:13px 16px;cursor:pointer;font-weight:600}
+.q>div.qt::before{content:"Q ";color:var(--s2);font-family:var(--mono)}
+.q .a{padding:0 16px 15px;display:none;font-size:14.5px;color:var(--ink)}
+.q.open .a{display:block}
+.q .kind{font:600 10px/1 var(--mono);color:#fff;padding:3px 6px;border-radius:4px;background:var(--mut);margin-right:6px}
+.callout{border-left:4px solid var(--warn);background:color-mix(in srgb,var(--warn) 9%,var(--panel));
+  border-radius:0 10px 10px 0;padding:12px 16px;margin:1em 0}
+.ok{color:var(--ok);font-weight:600}
+/* ---- config route resolver ---- */
+.cfg{display:grid;gap:9px;margin-bottom:4px}
+.cfgrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cfglab{font:600 12px/1 var(--mono);color:var(--mut);width:86px;flex:none}
+.seg{display:inline-flex;gap:4px;flex-wrap:wrap}
+.segbtn{font:600 12px/1 var(--mono);padding:7px 11px;border:1px solid var(--line);border-radius:7px;
+  background:var(--panel);color:var(--ink);cursor:pointer}
+.segbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pipe{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:18px 0 12px}
+.plight{font:600 12px/1 var(--mono);padding:7px 10px;border-radius:7px;border:1px solid var(--line);
+  opacity:.32;display:inline-flex;gap:6px;align-items:center;transition:opacity .15s}
+.plight.on{opacity:1}
+.verdict{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font:600 14px/1.3 var(--mono);margin-bottom:10px}
+.vpill{font:700 13px/1 var(--mono);padding:7px 12px;border-radius:20px;color:#fff}
+/* ---- device-port anatomy ---- */
+.kc{font:600 11px/1 var(--mono);padding:6px 10px;border-radius:7px;border:1px solid var(--line);
+  cursor:pointer;color:var(--ink);background:var(--panel);display:inline-flex;gap:6px;align-items:center}
+.kc.sel{box-shadow:inset 0 0 0 2px currentColor}
+.wl{display:block;padding:1px 8px;border-left:3px solid transparent;border-radius:0 4px 4px 0}
+.wl.gen{border-left-color:var(--cuda)} .wl.ext{border-left-color:#0891b2} .wl.fb{border-left-color:#7c8598}
+.wl.on{background:var(--hl)} .wl.dim{opacity:.3}
+.bucket{display:inline-block;font:700 10px/1 var(--mono);padding:3px 6px;border-radius:5px;color:#fff}
+.bA{background:#7c8598} .bB{background:var(--cuda)}
+/* ---- layer cake ---- */
+.layers{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.layer{padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--line);display:flex;gap:9px;
+  align-items:baseline;flex-wrap:wrap;background:var(--panel);transition:.12s}
+.layer:last-child{border-bottom:0}
+.layer:hover{background:var(--code)}
+.layer.sel{box-shadow:inset 4px 0 0 var(--s2)}
+.layer.floor{background:color-mix(in srgb,var(--cuda) 9%,var(--panel))}
+.layer.base{background:color-mix(in srgb,var(--s2) 13%,var(--panel))}
+.ltag{font:700 9.5px/1 var(--mono);padding:4px 6px;border-radius:5px;color:#fff;white-space:nowrap}
+.ltag.opt{background:var(--mut)} .ltag.must{background:var(--s2)} .ltag.cfloor{background:var(--cuda)}
+.partlbl{text-align:center;font:700 12px/1 var(--mono);color:var(--mut);letter-spacing:.18em;margin:1.5em 0 .2em}
+.partspine{font-size:1.16rem;font-weight:680;max-width:660px;margin:.35em auto 0;line-height:1.42;text-align:center}
+hr{border:0;border-top:1px solid var(--line);margin:2.4em 0}
+.foot{color:var(--mut);font-size:13px;margin-top:2em}
+sup a{font-size:.7em}
+</style>
+</head>
+<body>
+
+<div class="spine">
+  <div class="row">
+    <span class="stage" data-go="c-front"><span class="dot d1"></span>torch.compile</span>
+    <span class="arrow">→</span>
+    <span class="stage" data-go="c-split"><span class="dot d2"></span>VllmBackend</span>
+    <span class="arrow">→</span>
+    <span class="stage" data-go="c-inductor"><span class="dot d3"></span>Inductor</span>
+    <span class="arrow">→</span>
+    <span class="stage" data-go="c-terminals"><span class="dot dcuda"></span>Triton<span class="mut" style="font-weight:400">/</span><span class="dot dcpu"></span>C++</span>
+    <span class="arrow" style="margin:0 1px">‖</span>
+    <span class="stage" data-go="c-layers"><span class="dot d2"></span>device / port</span>
+    <span class="theme" id="themebtn">◐ theme</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+<h1>torch → vLLM → Inductor → Triton</h1>
+<p class="mut" style="font-size:1.05rem;margin-top:.2em">
+  A call-flow book — captured live from <b>Qwen2.5-0.5B</b> on an RTX&nbsp;4090 (CUDA) and on CPU.
+  Every kernel, graph, and log line below is real output from a run on this machine, not a sketch.
+</p>
+
+<div class="card hero">
+  <p class="lead" style="margin-top:0">
+    <b>The whole book in one sentence:</b> every operation in a vLLM forward pass ends up as
+    <b>compiled machine code</b> — the only questions are <i>who writes the kernel</i> and <i>when</i>.
+    <code>torch.compile</code> watches the model run once and writes down what it did (an <b>FX graph</b>);
+    vLLM's backend <b>cuts that graph at every attention</b> and hands the pieces to <b>Inductor</b>;
+    Inductor writes the actual kernel — <span class="tag tcuda">Triton</span> on GPU,
+    <span class="tag tcpu">C++/OpenMP</span> on CPU. Same front-end, two terminals.
+  </p>
+  <p style="margin-bottom:.3em"><b>The stable color code</b> — it means the same thing on every diagram, badge, and code highlight in this book:</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <span class="tag t1">1 · torch.compile / Dynamo</span>
+    <span class="tag t2">2 · VllmBackend (split · piecewise · cudagraph)</span>
+    <span class="tag t3">3 · Inductor</span>
+    <span class="tag tcuda">4a · Triton (CUDA)</span>
+    <span class="tag tcpu">4b · C++/OpenMP (CPU)</span>
+  </div>
+</div>
+
+<div class="card">
+  <b>The one example threaded through the whole book.</b> A single vLLM op —
+  <code>fused_add_rms_norm</code> (residual-add + RMSNorm, the thing that runs twice per decoder layer) —
+  is followed from Python source all the way to its generated kernel, on <i>both</i> targets.
+  You never switch examples.
+  <div class="env" style="margin-top:12px">
+    <b>model</b><span>Qwen/Qwen2.5-0.5B-Instruct — 24 layers, hidden 896, bf16</span>
+    <b>gpu</b><span>NVIDIA RTX 4090 (24&nbsp;GB) · driver 610.43.02 · CUDA 13.3</span>
+    <b>cpu</b><span>Intel i9-13900F (32 threads)</span>
+    <b>stack</b><span>torch 2.11.0+cu130 · triton 3.6.0 · vLLM 0.1.dev18451+g<b>e35e4cf43</b> · py 3.12</span>
+    <b>proof</b><span>CUDA run generated: <span class="ok">"Paris. It is the largest city in Europe and the second largest…"</span></span>
+  </div>
+  <p class="mut" style="font-size:12.5px;margin:10px 0 0">
+    Reproduce everything: <code>books/captures/callflow/capture_callflow.py</code>. Raw captures live in the same folder.
+  </p>
+</div>
+
+<!-- ============================================================= -->
+<div class="partlbl">PART I · THE COMPILE PIPELINE</div>
+
+<h2 id="c-front"><span class="tag t1">STAGE 1</span> &nbsp;Where it starts: <code>@support_torch_compile</code></h2>
+
+<p class="lead"><b>Plain version:</b> vLLM doesn't hand your model to the compiler and wait.
+It puts a sticky note on the model class that says "compile me the first time you run" — then goes on
+loading weights. The real compilation only fires later, during a warm-up dummy forward. So all the
+"compiling…" noise in the logs shows up at <i>startup</i>, not on your first request.</p>
+
+<p>Every compilable model class (here <code>Qwen2Model</code>) is decorated. The decorator rewrites the
+class: it mixes in a wrapper base and installs a custom <code>__call__</code> that decides, on every
+invocation, between running eager and running the compiled artifact.</p>
+
+<pre><code><span class="mut"># vllm/model_executor/models/qwen2.py</span>
+@support_torch_compile        <span class="mut"># decorators.py:118 → rewrites the class</span>
+class Qwen2Model(nn.Module):
+    def forward(self, input_ids, positions, ...): ...</code></pre>
+
+<div class="st4" style="margin-top:12px">
+  <div class="card" style="margin:0">
+    <b>Registered at construction</b> <span class="anchor">wrapper.py:90 → 148</span>
+    <p style="margin:.4em 0 0;font-size:14px">When the model is built, the wrapper calls
+    <code>init_backend()</code> to get a <b>VllmBackend</b> instance, then
+    <code>torch.compile(self.forward, fullgraph=True, backend=VllmBackend)</code>.
+    This only <i>registers</i> — no tracing yet.</p>
+  </div>
+  <div class="card" style="margin:0">
+    <b>Compiled at warm-up</b> <span class="anchor">gpu_model_runner.py:6262 → 6322</span>
+    <p style="margin:.4em 0 0;font-size:14px"><code>profile_run → _dummy_run</code> runs the model once with fake
+    inputs. <i>That</i> first call triggers Dynamo tracing → split → Inductor → Triton, all up front.</p>
+  </div>
+</div>
+
+<div class="callout" style="border-left-color:var(--s2)">
+  <b>Gotcha #1 — mode decides everything.</b> Only <code>VLLM_COMPILE</code> (mode&nbsp;3, the v1 default)
+  produces the VllmBackend → split → piecewise path this book traces.
+  <code>STOCK_TORCH_COMPILE</code> (mode&nbsp;1) returns early after a plain <code>nn.Module.compile()</code>
+  and never touches any of it <span class="anchor">compilation.py:1057–1071</span>.
+</div>
+
+<!-- ============================================================= -->
+<h2 id="c-trace">The call chain, one step at a time</h2>
+<p class="lead"><b>Plain version:</b> below is the actual path a forward call takes the very first time,
+from the decorator down to a generated Triton kernel and back. Walk it with the buttons. Each step is a
+real function at a real line — open the file and check.</p>
+
+<div class="trace">
+  <div class="phbar" id="phbar"></div>
+  <div class="stepbody">
+    <div class="num" id="s-num"></div>
+    <h4 id="s-title"></h4>
+    <div id="s-tags" style="margin:.2em 0 .5em;display:flex;gap:6px;flex-wrap:wrap"></div>
+    <div id="s-desc"></div>
+    <div style="margin-top:10px"><span class="anchor" id="s-anchor"></span></div>
+    <div class="stepnav">
+      <button class="btn" id="prev">‹ back</button>
+      <div class="prog"><i id="progbar"></i></div>
+      <button class="btn" id="next">next ›</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="c-split"><span class="tag t2">STAGE 2</span> &nbsp;The split: attention is the seam</h2>
+
+<p class="lead"><b>Plain version:</b> a compiler loves one big graph, but attention can't be baked into a
+static kernel — it reads and writes the paged KV cache and has its own hand-written kernel. So vLLM
+<b>cuts the graph at every attention op</b>, compiles the math <i>between</i> the cuts, and runs attention
+eagerly in the gaps. Click a node to see how the seam falls.</p>
+
+<p>vLLM's manual splitter walks the FX graph and breaks it at any node in
+<code>splitting_ops</code> — the attention ops <span class="anchor">partition_rules.py:14 · backends.py:1171</span>.
+In our run the two seam ops are visible right in the captured graph:</p>
+
+<div class="splitgrid">
+  <div>
+    <div class="mut" style="font:600 11px/1 var(--mono);margin-bottom:6px">PRE-SPLIT FX GRAPH (one layer's tail)</div>
+    <div id="g-nodes"></div>
+  </div>
+  <div>
+    <div class="mut" style="font:600 11px/1 var(--mono);margin-bottom:6px">captured: fx_pre_split_excerpt.txt</div>
+<pre id="g-code"><code><span class="codeln" data-k="rms">fused_add_rms_norm = torch.ops.<b>vllm_ir</b>.fused_add_rms_norm(...)  <span class="mut"># layernorm.py</span></span>
+<span class="codeln" data-k="qkv">qkv = torch.ops.aten.mm(hidden, w_qkv)              <span class="mut"># linear.py</span></span>
+<span class="codeln" data-k="kv">kv_cache_dummy_dep = torch.ops.<b>vllm</b>.unified_kv_cache_update(  <span class="mut"># attention.py:568</span></span>
+<span class="codeln" data-k="kv">        key_2, value, ...)</span>
+<span class="codeln" data-k="attn">torch.ops.<b>vllm</b>.unified_attention_with_output(       <span class="mut"># attention.py:571  ⟵ SEAM</span></span>
+<span class="codeln" data-k="attn">        query_2, key_2, value, output_3, ...)</span>
+<span class="codeln" data-k="o">attn_output = output_3.view(-1, 896)                <span class="mut"># o_proj feeds next piece</span></span></code></pre>
+  </div>
+</div>
+<div class="detail" id="g-detail">Click a graph node or a code line…</div>
+
+<div class="st4" style="margin-top:16px">
+  <div class="card" style="margin:0;text-align:center">
+    <div style="font:700 1.8rem/1 var(--s2)">24</div>
+    <div class="mut" style="font-size:13px">attention seams<br>(one per decoder layer)</div>
+  </div>
+  <div class="card" style="margin:0;text-align:center">
+    <div style="font:700 1.8rem/1 var(--s2)">49</div>
+    <div class="mut" style="font-size:13px"><code>submod_0…submod_48</code><br>alternating compute / attn</div>
+  </div>
+  <div class="card" style="margin:0;text-align:center">
+    <div style="font:700 1.8rem/1 var(--s3)">3</div>
+    <div class="mut" style="font-size:13px">distinct Inductor artifacts<br>(the 24 layers dedup)</div>
+  </div>
+  <div class="card" style="margin:0;text-align:center">
+    <div style="font:700 1.8rem/1 var(--cuda)">12</div>
+    <div class="mut" style="font-size:13px">Triton kernels generated<br>(<code>kernel_1…kernel_12</code>)</div>
+  </div>
+</div>
+<p class="mut" style="font-size:13px">
+  The 24 decoder-layer subgraphs are structurally identical, so Inductor's cache compiles <b>one</b> and
+  reuses it — only <code>subgraph_0</code>, <code>subgraph_1</code>, <code>subgraph_24</code> are saved
+  under <code>…/backbone/</code>. That's why the flood of "compiling" work is far smaller than 24×.
+</p>
+
+<!-- ============================================================= -->
+<h2 id="c-inductor"><span class="tag t3">STAGE 3</span> &nbsp;Inductor: the torch → kernel boundary</h2>
+
+<p class="lead"><b>Plain version:</b> each compute-piece is now a small graph of plain math ops. Inductor is
+the part of PyTorch that turns such a graph into a real kernel — it fuses the ops, then writes source
+code and compiles it. This is the single door every piece walks through; the target platform decides what
+language comes out the other side.</p>
+
+<p>vLLM calls Inductor through an adaptor. In this run the log shows
+<code>Using InductorStandaloneAdaptor</code> — the torch-2.8+ path that calls
+<code>torch._inductor.standalone_compile</code> <span class="anchor">compiler_interface.py:280 → 376</span>.
+Just before that, vLLM's own post-grad passes rewrite the <code>vllm_ir</code> ops (like
+<code>fused_add_rms_norm</code>) into plain ATen ops that Inductor can fuse
+<span class="anchor">VllmIRLoweringPass</span>.</p>
+
+<pre><code><span class="mut"># captured: cuda_pipeline_excerpt.txt  (VLLM_LOGGING_LEVEL=DEBUG)</span>
+Dynamo bytecode transform time: 2.57 s          <span class="mut"># stage 1 — trace</span>
+Using InductorStandaloneAdaptor                 <span class="mut"># stage 3 — the boundary</span>
+Compiling a graph for compile range (1, 8192) takes 4.28 s
+PiecewiseBackend: compile_ranges: [(1, 8192)]   <span class="mut"># compiles ranges up front, not per-request</span></code></pre>
+
+<div class="callout">
+  <b>Gotcha #2 — the <code>vllm_ir</code> lowering lives in the backend, not in stock Inductor.</b>
+  If you call <code>torch.compile(backend="inductor")</code> directly (no VllmBackend), the
+  <code>vllm_ir.fused_add_rms_norm</code> node stays <i>opaque</i> and is <b>not</b> fused into the kernel —
+  you'll see it survive as an extern call. The fusion you see below only happens on the full
+  <code>VLLM_COMPILE</code> path. (Verified on CPU — see the colophon.)
+</div>
+
+<!-- ============================================================= -->
+<h2 id="c-terminals"><span class="tag tcuda">STAGE 4a</span> <span class="tag tcpu">STAGE 4b</span> &nbsp;Two terminals, one op</h2>
+
+<p class="lead"><b>Plain version:</b> here is the payoff. The exact same op —
+residual-add + RMSNorm over a 896-wide row — becomes a <span class="tag tcuda">Triton</span> kernel on
+GPU and a <span class="tag tcpu">C++/OpenMP</span> kernel on CPU. Read them side by side: same math
+(sum of squares → <code>rsqrt</code> → scale), different language, because Inductor's <i>backend</i>
+switched. Flip the tabs.</p>
+
+<div class="tabs">
+  <div class="tab cuda on" data-pane="pcuda">▶ CUDA · Triton</div>
+  <div class="tab cpu" data-pane="pcpu">▶ CPU · C++/OpenMP</div>
+</div>
+
+<div class="pane" id="pcuda">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+    <span class="tag tcuda">Triton</span>
+    <code>triton_per_fused_fused_add_rms_norm_2</code>
+    <span class="anchor">depyf: __compiled_fn_1.kernel_11.py</span>
+  </div>
+<pre><code><span class="mut"># one program instance handles one row; the 896-wide reduction is the RMS</span>
+@triton.jit
+def triton_per_fused_fused_add_rms_norm_2(in_out_ptr0, in_ptr0, in_ptr1, in_ptr2, xnumel, r0_numel, XBLOCK: tl.constexpr):
+    r0_numel = 896;  R0_BLOCK: tl.constexpr = 1024
+    ...
+    tmp6  = tmp3 + tmp5            <span class="mut"># residual add   (the "add" in fused_add_rms_norm)</span>
+    tmp9  = tmp1 + tmp8
+    tmp10 = tmp9 * tmp9           <span class="mut"># x^2</span>
+    tmp14 = tl.sum(tmp13, 1)[:, None]    <span class="mut"># Σ x^2 across the 896 lane</span>
+    tmp16 = tmp14 / 896.0
+    tmp19 = <b>libdevice.rsqrt</b>(tmp16 + 1e-06)  <span class="mut"># 1/sqrt(mean+eps)</span>
+    tmp20 = tmp9 * tmp19
+    tmp23 = tmp21 * tmp22         <span class="mut"># * weight</span></code></pre>
+  <p class="mut" style="font-size:12.5px;margin:.6em 0 0">Autotune winner (<code>.best_config</code>):
+    <code>XBLOCK=1024, num_warps=4, num_stages=1</code>, chosen in 39&nbsp;ms. bf16 throughout,
+    <code>persistent_reduction</code> (whole 896 row fits in registers).</p>
+</div>
+
+<div class="pane hide" id="pcpu">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+    <span class="tag tcpu">C++/OpenMP</span>
+    <code>cpp_fused__to_copy_add_mean_mul_pow_rsqrt_0</code>
+    <span class="anchor">captured: cpu_inductor_output_code.py</span>
+  </div>
+<pre><code><span class="mut">// emitted via async_compile.cpp_pybinding — vectorized with at::vec</span>
+extern "C" void kernel(const at::BFloat16* in_ptr0, const at::BFloat16* in_ptr1,
+                       float* out_ptr0, at::BFloat16* out_ptr1) {
+  #pragma GCC ivdep
+  for (int64_t x0 = 0; x0 &lt; 8L; x0 += 1L) {            // one row per outer iter
+    at::vec::VectorizedN&lt;float,2&gt; tmp_acc0_vec = ...;
+    for (int64_t x1 = 0; x1 &lt; 896L; x1 += 16L) {       // 16 bf16 lanes / step
+      auto tmp0 = at::vec::Vectorized&lt;at::BFloat16&gt;::loadu(in_ptr0 + x1 + 896L*x0, 16);
+      auto tmp1 = at::vec::convert&lt;float,2,at::BFloat16,1&gt;(tmp0);
+      auto tmp2 = tmp1 * tmp1;                          // x^2
+      tmp_acc0_vec = tmp_acc0_vec + tmp2;               // Σ x^2  (vector reduce)
+    }
+    // ... vec_reduce_all → / 896 → rsqrt(+eps) → * weight → store bf16
+  }
+}</code></pre>
+  <p class="mut" style="font-size:12.5px;margin:.6em 0 0">Same three-phase shape as the Triton kernel:
+    reduce Σx², then <code>rsqrt(mean+eps)</code>, then scale by weight — but expressed as an
+    <code>at::vec::Vectorized</code> loop the C++ compiler turns into SIMD.</p>
+</div>
+
+<h3>The same routing your notes already tabulate</h3>
+<p>This is exactly the <code>PLATFORM × BACKEND → MECHANISM</code> split from
+<code>notes/lowering-paths.txt</code>, now with a live kernel behind each cell:</p>
+<table>
+<thead><tr><th>op</th><th>platform</th><th>compile mode</th><th>backend</th><th>terminal (this run)</th></tr></thead>
+<tbody>
+<tr><td><code>fused_add_rms_norm</code></td><td>cuda</td><td><code>vllm</code></td><td>inductor</td><td><span class="tag tcuda">Triton</span> <code>triton_per_fused_…</code></td></tr>
+<tr><td><code>fused_add_rms_norm</code></td><td>cpu</td><td>(inductor front-end)</td><td>inductor</td><td><span class="tag tcpu">C++/OpenMP</span> <code>cpp_fused_…</code></td></tr>
+<tr><td><code>linear</code> / <code>aten.mm</code></td><td>cpu</td><td>(inductor front-end)</td><td>inductor</td><td><span class="tag tcpu">extern</span> <code>extern_kernels.mm</code> → ATen/MKL GEMM</td></tr>
+<tr><td><code>unified_attention_with_output</code></td><td>cuda</td><td><code>vllm</code></td><td>—</td><td><span class="tag t2">eager</span> (split out; never compiled)</td></tr>
+</tbody></table>
+<p class="mut" style="font-size:13px">Note the third row: even on the Inductor path, a matmul often stays an
+<b>extern GEMM call</b> — Inductor emits <code>extern_kernels.mm</code> into ATen/MKL rather than a
+generated kernel. That's the "Inductor may still emit an extern GEMM template call" line from your
+<code>aten-mm-chain.md</code>, observed live.</p>
+
+<!-- ============================================================= -->
+<h2 id="c-cudagraph"><span class="tag t2">STAGE 2 (runtime)</span> &nbsp;CUDA graphs — the orthogonal driver</h2>
+<p class="lead"><b>Plain version:</b> compiling the kernels is one thing; launching 49 of them per token,
+per request, has its own overhead. A CUDA graph records the whole launch sequence once and replays it
+as a single call. It's a separate mechanism layered on top of the compiled pieces — not part of the
+compile itself.</p>
+<p>At warm-up vLLM captures graphs for a fixed set of batch sizes
+<span class="anchor">cuda_graph.py:283 · 313</span>. Our run used mode <code>FULL_AND_PIECEWISE</code>:</p>
+<pre><code><span class="mut"># captured log</span>
+Capturing CUDA graphs (FULL):      100%|██████████| 4/4
+Capturing CUDA graphs (PIECEWISE): 100%|██████████| 5/5   <span class="mut"># sizes [1, 2, 4, 8, 16]</span></code></pre>
+<div class="callout" style="border-left-color:var(--s2)">
+  <b>Gotcha #3 — two independent wrappers.</b> <code>PiecewiseBackend</code> (dispatches the compiled
+  piece for a shape) and <code>CUDAGraphWrapper</code> (capture/replay keyed by the runtime batch
+  descriptor) are separate. A descriptor mismatch makes the graph wrapper silently fall back to eager
+  <span class="anchor">cuda_graph.py:254</span> — "no cudagraph" is not an error, so it's easy to miss in a log.
+</div>
+
+<!-- ============================================================= -->
+<h2 id="c-config"><span class="tag t1">THE DIALS</span> &nbsp;How <code>compilation_config</code> picks the route</h2>
+
+<p class="lead"><b>Plain version:</b> you don't land on one of these paths by accident — you choose it.
+The <code>compilation_config</code> you pass to <code>LLM(...)</code> is a handful of <i>independent</i>
+dials, and each one sets one column of your lowering table. Turn them and watch the route for our
+threaded op (<code>rms_norm</code>) resolve live — it opens on the exact run this book captured.</p>
+
+<div class="card">
+  <div class="cfg">
+    <div class="cfgrow"><span class="cfglab">mode</span><div class="seg" data-dial="mode"></div></div>
+    <div class="cfgrow"><span class="cfglab">backend</span><div class="seg" data-dial="backend"></div></div>
+    <div class="cfgrow"><span class="cfglab">custom_ops</span><div class="seg" data-dial="source"></div>
+      <span class="mut" style="font-size:12px">← SOURCE: <code>native</code> → Inductor, or the hand-written kernel</span></div>
+    <div class="cfgrow"><span class="cfglab">platform</span><div class="seg" data-dial="platform"></div></div>
+  </div>
+  <div class="pipe" id="cfg-pipe"></div>
+  <div class="verdict">MECHANISM&nbsp;→&nbsp;<span class="vpill" id="cfg-mech"></span> <span class="anchor" id="cfg-anchor"></span></div>
+  <div class="detail" id="cfg-detail"></div>
+</div>
+
+<div class="callout" style="border-left-color:var(--s1)">
+  <b>Coarse shortcut.</b> <code>LLM(..., enforce_eager=True)</code> overrides everything to
+  <code>mode=NONE, cudagraph_mode=NONE</code> <span class="anchor">vllm.py:1095</span> — the top-left
+  cell (pure eager dispatch). Leaving it <code>False</code> (default) is what makes v1 pick
+  <code>VLLM_COMPILE</code>.
+</div>
+
+<details>
+<summary>The full field → column mapping (with anchors)</summary>
+<div class="in">
+<table>
+<thead><tr><th><code>compilation_config</code> field</th><th>column</th><th>what it decides</th><th>anchor</th></tr></thead>
+<tbody>
+<tr><td><code>mode</code></td><td>COMPMODE</td><td>none / stock / trace_once / <b>vllm</b> — only <code>VLLM_COMPILE</code> builds the split+piecewise machine</td><td><span class="anchor">compilation.py:1051–1071</span></td></tr>
+<tr><td><code>backend</code></td><td>TCBACKEND</td><td><code>inductor</code> → codegen; <code>eager</code> → traced but ATen at the leaves</td><td><span class="anchor">init_backend</span></td></tr>
+<tr><td><code>custom_ops</code></td><td>SOURCE</td><td>per-op: <code>forward_native</code> (→Inductor) vs <code>forward_cuda/cpu</code> (hand-written)</td><td><span class="anchor">custom_op.py:174</span></td></tr>
+<tr><td>(hardware)</td><td>PLATFORM</td><td>fixes Inductor's codegen backend: Triton vs C++/OpenMP</td><td><span class="anchor">current_platform</span></td></tr>
+</tbody></table>
+<p class="mut" style="font-size:12.5px;margin-bottom:0">This build also carries
+<code>kernel_config.ir_op_priority</code> (e.g. <code>rms_norm=['vllm_c','native']</code>) — the newer
+per-<code>vllm_ir</code>-op priority that decides "try the hand-written kernel first, else native." Same
+idea, same entry point: the config on <code>LLM(...)</code>.</p>
+</div>
+</details>
+
+<!-- ============================================================= -->
+<hr>
+<div class="partlbl">PART II · REACHING THE HARDWARE &amp; PORTING A DEVICE</div>
+<p class="partspine">Kernels only matter if they reach your hardware. The PyTorch dispatcher routes every op
+by device key — and exactly one thing, <span style="color:var(--s2)">vLLM's <code>Platform</code></span>,
+must recognize your device. The compile knob and the custom kernels sit on top; both optional.</p>
+
+<h2 id="c-layers"><span class="tag t2">FOUNDATION</span> &nbsp;The layer cake — what's mandatory, what's optional</h2>
+
+<p class="lead"><b>Plain version:</b> three different things decide how your model runs, and they get mixed up
+constantly. Stack them right: <b>Platform</b> is the foundation that makes vLLM recognize your device — you
+cannot skip it. Above it sit two <i>optional</i> layers: vLLM's hand-written <b>csrc kernels</b> (per-op) and
+the <b>compile knob</b>. And one band stays load-bearing even after you drop the optional layers:
+<b>attention + KV-cache are always compiled</b>.</p>
+
+<p>Click a layer to see what it does and whether you can skip it:</p>
+<div class="layers" id="layers">
+  <div class="layer" data-l="cfg"><span class="ltag opt">optional · knob</span><b>compilation_config</b> <span class="mut">— inductor / eager / custom CompilerInterface</span></div>
+  <div class="layer" data-l="csrc"><span class="ltag opt">optional · per-op</span><b>csrc kernels (vllm._C)</b> <span class="mut">— custom_ops on → forward_cuda; off → torch-native</span></div>
+  <div class="layer floor" data-l="floor"><span class="ltag cfloor">compiled floor</span><b>attention + KV-cache</b> <span class="mut">— flash-attn + _C_cache_ops · no native fallback</span></div>
+  <div class="layer base" data-l="plat"><span class="ltag must">mandatory · foundation</span><b>Platform</b> <span class="mut">— recognizes the device: worker · init_device · KV · comm · dispatch_key</span></div>
+</div>
+<div class="mut" style="text-align:center;font:600 11px/1.4 var(--mono);padding:8px">▲ everything stands on: PyTorch dispatcher + your device's ATen backend ▲</div>
+<div class="detail" id="layer-detail">Click a layer above…</div>
+
+<div class="callout" style="border-left-color:var(--s2)">
+  <b>Minimal runnable device</b> = <b>Platform</b> (+ Worker) · <code>backend="eager"</code> · your
+  <b>attention + KV-cache kernels</b> · a PrivateUse1 ATen backend. Everything else — vLLM's csrc pointwise
+  kernels, Inductor codegen — is a speed layer you add later. "Not using vLLM's csrc" ≠ "not using CUDA":
+  the native ops still run on torch's own CUDA kernels.
+</div>
+
+<!-- ============================================================= -->
+<h2 id="c-device"><span class="tag t3">BEYOND TRITON</span> &nbsp;What Inductor actually emits — &amp; porting it to a new device</h2>
+
+<p class="lead"><b>Plain version:</b> Inductor's output is <i>not</i> one big Triton kernel — it's a small
+Python <b>wrapper</b> that mixes three kinds of line, all running on the same device's tensors. When you
+port to a new device, those three kinds collapse into <b>two</b> completely separate registration jobs —
+and neither is vLLM's <code>Platform</code>; both live in PyTorch.</p>
+
+<p>Below is the real wrapper from our CUDA run (condensed from <code>kernel_12.py</code>). Click a kind to
+see how it reaches the GPU and what a new device owes it:</p>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+  <span class="kc" data-k="gen"><span class="dot" style="background:var(--cuda)"></span>generated kernel</span>
+  <span class="kc" data-k="ext"><span class="dot" style="background:#0891b2"></span>extern library call</span>
+  <span class="kc" data-k="fb"><span class="dot" style="background:#7c8598"></span>eager ATen / alloc</span>
+</div>
+
+<pre id="wrap-code"><code><span class="wl">def call(args):</span>
+<span class="wl">    arg0, weight = args</span>
+<span class="wl fb" data-k="fb">    buf0 = empty_strided_cuda((8, 896), ..., torch.bfloat16)   <span class="mut"># alloc on device</span></span>
+<span class="wl gen" data-k="gen">    triton_per_fused_add_rms_norm_2.run(arg0, buf0, ...)       <span class="mut"># Inductor's Triton kernel</span></span>
+<span class="wl fb" data-k="fb">    buf1 = empty_strided_cuda((8, 896), ...)</span>
+<span class="wl ext" data-k="ext">    extern_kernels.mm(buf0, weight, out=buf1)                  <span class="mut"># aten::mm → cuBLAS</span></span>
+<span class="wl fb" data-k="fb">    buf2 = torch.ops.aten.mean.dim(buf1, [-1], True)           <span class="mut"># eager ATen (not fused)</span></span>
+<span class="wl fb" data-k="fb">    buf3 = torch.ops.aten.rsqrt.default(buf2)</span>
+<span class="wl fb" data-k="fb">    buf4 = reinterpret_tensor(buf1, ...)                       <span class="mut"># view, no device compute</span></span>
+<span class="wl">    return (buf4,)</span></code></pre>
+<div class="detail" id="wrap-detail">Click a kind above (or a colored line)…</div>
+
+<h3>The two registration jobs — both in PyTorch, not vLLM</h3>
+<table>
+<thead><tr><th>wrapper component</th><th>how it reaches CUDA</th><th>new-device job</th><th>torch API / where</th></tr></thead>
+<tbody>
+<tr><td><span class="bucket bB">B</span> generated kernel</td><td>Inductor codegen → Triton</td><td>register an Inductor codegen backend + device interface</td><td><code>register_backend_for_device</code> · <code>register_interface_for_device</code></td></tr>
+<tr><td><span class="bucket bA">A</span> <code>extern_kernels.mm</code></td><td><code>aten::mm</code> → cuBLAS via dispatcher</td><td>ATen kernel for your dispatch key</td><td><code>TORCH_LIBRARY_IMPL(aten, PrivateUse1, …)</code></td></tr>
+<tr><td><span class="bucket bA">A</span> aten fallback + alloc</td><td>dispatcher (same as eager)</td><td>same ATen backend; teach <code>empty_strided</code> your device</td><td>ATen backend</td></tr>
+</tbody></table>
+
+<h3><span class="bucket bA">A</span> &nbsp;How the dispatcher routes — and why you never patch it</h3>
+
+<p class="lead"><b>Plain version:</b> the PyTorch dispatcher is a fixed <i>routing table</i>, not code you
+edit. You don't change it — you <b>register kernels into it</b>. Once your tensor carries the right device
+key and a kernel is registered under it, routing is fully automatic — no <code>if device==...</code>
+anywhere. So "automatic" is true of the <i>routing</i>; the <i>registration</i> is the work.</p>
+
+<p>The table is keyed by <code>DispatchKey</code> — <b>147 of them, compiled into libtorch</b>, so you can't
+add one at runtime. A brand-new device therefore claims the reserved <code><b>PrivateUse1</b></code> slot.
+Three steps make <code>aten::*</code> auto-route to your hardware:</p>
+
+<ol style="padding-left:20px">
+<li><b>Claim the key</b> — rename <code>PrivateUse1</code> to your device (all verified present in torch 2.11):
+<pre><code>torch.utils.rename_privateuse1_backend("mydev")
+torch._register_device_module("mydev", my_module)        <span class="mut"># streams, device_count, …</span>
+torch.utils.generate_methods_for_privateuse1_backend()   <span class="mut"># .to("mydev"), Tensor.is_mydev</span></code></pre></li>
+<li><b>Make tensors carry the key</b> so <code>torch.empty(device="mydev")</code> yields a
+<code>PrivateUse1</code>-keyed tensor: an <b>allocator</b> (<code>REGISTER_ALLOCATOR</code>),
+<code>empty_strided</code>/factory ops, and a <b>DeviceGuard</b>
+(<code>C10_REGISTER_GUARD_IMPL(PrivateUse1, …)</code>) for stream/device. No backend → no tensor → nothing to route.</li>
+<li><b>Register kernels under the key</b>:
+<pre><code>TORCH_LIBRARY_IMPL(aten, PrivateUse1, m) { m.impl("mm", &amp;my_mm); … }
+<span class="mut">// or in Python:</span>  torch.library.impl("aten::mm", "PrivateUse1", my_mm)</code></pre></li>
+</ol>
+
+<p>Then <code>extern_kernels.mm</code> → <code>aten::mm(device="mydev")</code> → the dispatcher looks up
+<code>(mm, PrivateUse1)</code> → <b>your kernel</b>, with zero Python branching. An op you <i>didn't</i>
+register hits your <b>fallback</b> (<code>m.fallback(…)</code> can forward to CPU) or raises
+<code>"not implemented for PrivateUse1"</code> — precisely the failure in the self-test counterfactual.</p>
+
+<div class="callout" style="border-left-color:#7c8598">
+  <b>vLLM's only role in routing is a label.</b> <code>Platform.dispatch_key="PrivateUse1"</code> just tells
+  vLLM what your key is (to assemble custom-op registration sets); it never touches the dispatcher itself.
+  torch-side = the 3 steps above; vLLM-side = set that string + ship the Platform/Worker/Attention classes.
+</div>
+
+<h3><span class="bucket bB">B</span> &nbsp;Making Inductor emit code for your device</h3>
+<pre><code><span class="mut"># (B) — verified present in the installed torch 2.11:</span>
+torch._inductor.codegen.common.register_backend_for_device(
+    device, device_scheduling, device_wrapper_codegen, ...)   <span class="mut"># TritonScheduling / CppScheduling</span>
+torch._dynamo.device_interface.register_interface_for_device(device, interface)
+<span class="mut"># already-registered interfaces: ['cpu', 'cuda', 'mps', 'mtia', 'xpu']</span></code></pre>
+
+<div class="callout" style="border-left-color:var(--cuda)">
+  <b>Escape hatch.</b> <code>compilation_config.backend="eager"</code> (or <code>enforce_eager=True</code>)
+  → no Inductor → the whole graph is dispatcher ATen. Now you need <b>only (A)</b>, not (B). That's why
+  eager-first bring-up is the pragmatic path: get the model running on your ATen backend, invest in Inductor
+  codegen for speed later.
+</div>
+
+<div class="callout" style="border-left-color:var(--s2)">
+  <b>Orthogonal to vLLM.</b> None of this is vLLM's <code>Platform</code>. vLLM's <code>backend</code> knob
+  only chooses <i>inductor / eager / a custom CompilerInterface</i>; whether Inductor can actually target your
+  device is decided entirely by the two PyTorch registrations above. Precedent: Intel's out-of-tree
+  <code>intel_extension_for_pytorch</code> called both for <code>"xpu"</code> before it went in-tree.
+</div>
+
+<!-- ============================================================= -->
+<h2 id="c-test">If I were interviewing you on this chapter…</h2>
+<p class="mut">Reconstruct the answer before opening it. Each answer links back to the section that proves it.</p>
+<div id="quiz"></div>
+
+<!-- ============================================================= -->
+<h2>Appendix &amp; colophon</h2>
+
+<details>
+<summary>Full generated Triton kernel (CUDA terminal)</summary>
+<div class="in"><pre><code id="full-triton">loading…</code></pre>
+<p class="mut" style="font-size:12px">Source: <code>books/captures/callflow/cuda_triton_fused_add_rms_norm.py</code></p></div>
+</details>
+
+<details>
+<summary>Full Inductor output code (CPU terminal — wrapper + C++ kernel)</summary>
+<div class="in"><pre><code id="full-cpp">loading…</code></pre>
+<p class="mut" style="font-size:12px">Source: <code>books/captures/callflow/cpu_inductor_output_code.py</code></p></div>
+</details>
+
+<details>
+<summary>Compiled-artifact cache layout (what lands on disk)</summary>
+<div class="in"><pre><code>~/.cache/vllm/torch_compile_cache/&lt;hash&gt;/rank_0_0/backbone/
+├── computation_graph.py                        <span class="mut"># the post-split module</span>
+├── vllm_compile_cache.py  ·  cache_key_factors.json
+├── artifact_compile_range_1_8192_subgraph_0    <span class="mut"># prologue (embed + layer 0 head)</span>
+├── artifact_compile_range_1_8192_subgraph_1    <span class="mut"># ONE representative layer (reused ×22)</span>
+└── artifact_compile_range_1_8192_subgraph_24   <span class="mut"># final layer + lm_head</span>
+torch_compile_cache/torch_aot_compile/&lt;h&gt;/inductor_cache/
+├── fxgraph/…   aotautograd/…                    <span class="mut"># Inductor's own FX + AOT caches</span>
+└── triton/0/…/__grp___…kernel.json              <span class="mut"># Triton kernel cache</span></code></pre></div>
+</details>
+
+<details>
+<summary>Reproduce commands (exact)</summary>
+<div class="in">
+<p><b>CUDA — full vLLM engine</b> (piecewise inductor + cudagraph, fresh compile + depyf dump):</p>
+<pre><code>VLLM_CACHE_ROOT=$OUT/vllm_cache TORCHINDUCTOR_CACHE_DIR=$OUT/inductor \
+VLLM_LOGGING_LEVEL=DEBUG .venv/bin/python -c '
+from vllm import LLM, SamplingParams
+from vllm.config.compilation import CompilationConfig, CompilationMode
+llm = LLM("Qwen/Qwen2.5-0.5B-Instruct", gpu_memory_utilization=0.35,
+          max_model_len=2048, enforce_eager=False,
+          compilation_config=CompilationConfig(mode=CompilationMode.VLLM_COMPILE,
+                                               debug_dump_path="'$OUT'/depyf"))
+print(llm.generate(["The capital of France is"],
+      SamplingParams(max_tokens=16, temperature=0))[0].outputs[0].text)'</code></pre>
+<p><b>CPU — Inductor C++ terminal</b> (front-end only; see negative result below):</p>
+<pre><code>TORCH_LOGS=output_code .venv/bin/python books/captures/callflow/capture_callflow.py cpu-cpp</code></pre>
+</div>
+</details>
+
+<div class="callout">
+  <b>Negative result, kept honest.</b> The <b>full vLLM engine did not run on CPU here</b>, for two real
+  reasons: (1) this is a <b>CUDA build</b> — <code>CpuPlatform</code> is gated on the version string
+  containing <code>"cpu"</code> <span class="anchor">platforms/__init__.py:162</span>, and forcing it hits
+  missing CPU <code>_C</code> kernels (<code>ir_op_priority(rms_norm=['vllm_c','native'])</code>); (2) a
+  matching <code>torch==2.11.0+cpu</code> wheel <b>does not exist</b> on any PyTorch index (verified: 0 wheels
+  on stable and test) — 2.11 only ships as <code>+cu130</code>. So the CPU terminal above is shown through the
+  <b>identical Inductor front-end</b> (<code>torch.compile(backend="inductor")</code>) on the same op — which
+  is exactly the branch this book is about — rather than a faked engine run. vLLM's own dispatcher confirms
+  the native route it would take on CPU: <code>Final IR op priority … rms_norm=['native']</code>.
+</div>
+
+<p class="foot">
+  Static call-flow anchors mapped from vLLM <code>e35e4cf43</code> and cross-checked against the live run.
+  Every code line, kernel, and log excerpt is a real capture in <code>books/captures/callflow/</code>.
+  Built with the gimlet comprehension-first method — spine first, captures over sketches, a hook on every claim.
+</p>
+
+</div>
+
+<script>
+/* ---------- theme toggle ---------- */
+(function(){
+  var b=document.getElementById('themebtn'), r=document.documentElement;
+  b.onclick=function(){
+    var cur=r.getAttribute('data-theme')
+      || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+    r.setAttribute('data-theme', cur==='dark'?'light':'dark');
+  };
+})();
+/* ---------- spine nav ---------- */
+document.querySelectorAll('.stage[data-go]').forEach(function(s){
+  s.onclick=function(){var el=document.getElementById(s.dataset.go); if(el) el.scrollIntoView({behavior:'smooth',block:'start'});};
+});
+
+/* ---------- step-through trace ---------- */
+var PHASES=[
+  {name:'Decorate',   color:'var(--s1)'},
+  {name:'Construct',  color:'var(--s1)'},
+  {name:'Warm-up',    color:'var(--s1)'},
+  {name:'Split',      color:'var(--s2)'},
+  {name:'Inductor',   color:'var(--s3)'},
+  {name:'Triton',     color:'var(--cuda)'},
+  {name:'Runtime',    color:'var(--s2)'}
+];
+var STEPS=[
+  {ph:0,tags:['t1'],t:'@support_torch_compile rewrites the class',
+   d:'At class-definition time the decorator infers dynamic input dims from the <code>forward</code> signature, mixes a wrapper base into the class, and installs custom <code>__init__</code>/<code>__call__</code>. No compilation yet — just wiring.',
+   a:'decorators.py:118 → 331'},
+  {ph:1,tags:['t1'],t:'load_model instantiates the decorated class',
+   d:'The model runner builds the model. The decorator\'s <code>__init__</code> runs, computes <code>do_not_compile</code>, and constructs the torch.compile wrapper.',
+   a:'gpu_model_runner.py:5176 → 5197'},
+  {ph:1,tags:['t1'],t:'wrapper registers torch.compile(backend=VllmBackend)',
+   d:'<code>init_backend()</code> returns a <b>VllmBackend</b> instance; the wrapper calls <code>torch.compile(self.forward, fullgraph=True, dynamic=False, backend=VllmBackend)</code>. This only registers — Dynamo tracing is lazy.',
+   a:'wrapper.py:90 → 148'},
+  {ph:2,tags:['t1'],t:'profile_run → _dummy_run makes the first forward',
+   d:'Warm-up runs the model once with fake inputs under <code>set_forward_context</code>. This first call is what forces the whole compile pipeline to fire.',
+   a:'gpu_model_runner.py:6262 → 6322'},
+  {ph:2,tags:['t1'],t:'[torch] Dynamo traces forward → FX GraphModule',
+   d:'Dynamo bytecode-analyzes <code>forward</code>, inlines through vLLM\'s layers (RMSNorm, Linear, RoPE, attention), and builds one FX graph — then hands it to the backend. <span class="mut">This step is torch-internal; vLLM\'s only hook records traced files for cache keys.</span>',
+   a:'Dynamo bytecode transform time: 2.57 s'},
+  {ph:3,tags:['t2'],t:'VllmBackend.__call__ receives the graph',
+   d:'Installs the post-grad <code>PostGradPassManager</code> (the <code>vllm_ir</code> lowering + fusion passes) into Inductor\'s config, then calls <code>split_graph</code>.',
+   a:'backends.py:1015 → 1163'},
+  {ph:3,tags:['t2'],t:'split_graph cuts at every attention op',
+   d:'Per-node <code>should_split</code> is true for <code>splitting_ops</code> (attention + kv-cache update). <code>torch.fx.passes.split_module</code> yields the split module — <b>49 submodules</b>, alternating compute and attention.',
+   a:'backends.py:548 → 597 · partition_rules.py:14'},
+  {ph:3,tags:['t2'],t:'PiecewiseBackend wraps each compute submodule',
+   d:'A <code>PiecewiseCompileInterpreter</code> walks the split module; each non-attention submod becomes a <code>PiecewiseBackend</code> (and, if enabled, a CUDAGraphWrapper). Attention submods are left to run eager.',
+   a:'backends.py:722 → 761'},
+  {ph:4,tags:['t3'],t:'CompilerManager → InductorStandaloneAdaptor',
+   d:'PiecewiseBackend compiles all shape ranges up front. Through <code>CompilerManager.compile</code> it reaches <b>InductorStandaloneAdaptor</b> — checking the on-disk cache first, else compiling.',
+   a:'piecewise_backend.py:190 → backends.py:353'},
+  {ph:4,tags:['t3'],t:'torch._inductor.standalone_compile(gm)',
+   d:'The torch → kernel boundary. Inductor runs its lowering + scheduler + fusion on the piece. <span class="mut">Everything below here is torch-internal.</span>',
+   a:'compiler_interface.py:280 → 376'},
+  {ph:5,tags:['tcuda'],t:'Inductor emits + autotunes a Triton kernel',
+   d:'The fused pointwise+reduction becomes <code>triton_per_fused_fused_add_rms_norm_2</code>; Triton JITs and autotunes it (winner: XBLOCK=1024, num_warps=4). The <code>.py</code> lands in the redirected cache; the artifact handle is cached.',
+   a:'depyf: __compiled_fn_1.kernel_11.py'},
+  {ph:6,tags:['t2'],t:'Stitched fn runs; attention eager, pieces compiled',
+   d:'VllmBackend binds the PiecewiseBackends into one callable returned to Dynamo. On the hot path each token runs: compiled piece → eager attention → compiled piece → …, optionally inside a replayed CUDA graph.',
+   a:'backends.py:1271 → piecewise_backend.py:358'}
+];
+(function(){
+  var i=0, phbar=document.getElementById('phbar');
+  PHASES.forEach(function(p,idx){var d=document.createElement('div');d.textContent=p.name;
+    d.onclick=function(){var f=STEPS.findIndex(function(s){return s.ph===idx});if(f>=0){i=f;render();}};phbar.appendChild(d);});
+  var TAGN={t1:'torch.compile',t2:'VllmBackend',t3:'Inductor',tcuda:'Triton'};
+  function render(){
+    var s=STEPS[i], ph=PHASES[s.ph];
+    document.getElementById('s-num').textContent='STEP '+(i+1)+' / '+STEPS.length+'  ·  '+ph.name;
+    document.getElementById('s-title').innerHTML=s.t;
+    document.getElementById('s-desc').innerHTML=s.d;
+    document.getElementById('s-anchor').textContent=s.a;
+    document.getElementById('s-tags').innerHTML=s.tags.map(function(t){return '<span class="tag '+t+'">'+TAGN[t]+'</span>';}).join('');
+    document.getElementById('progbar').style.width=((i+1)/STEPS.length*100)+'%';
+    document.getElementById('progbar').style.background=ph.color;
+    document.getElementById('prev').disabled=(i===0);
+    document.getElementById('next').disabled=(i===STEPS.length-1);
+    Array.prototype.forEach.call(phbar.children,function(c,idx){
+      c.classList.toggle('on', idx===s.ph);
+      c.style.background = idx===s.ph ? PHASES[idx].color : '';
+    });
+  }
+  document.getElementById('prev').onclick=function(){if(i>0){i--;render();}};
+  document.getElementById('next').onclick=function(){if(i<STEPS.length-1){i++;render();}};
+  render();
+})();
+
+/* ---------- select-to-highlight (split) ---------- */
+var GNODES=[
+  {k:'rms', cls:'comp', label:'fused_add_rms_norm  (vllm_ir)',      det:'<b>Compute piece.</b> A vLLM IR op. A post-grad pass rewrites it to plain ATen, then Inductor fuses + codegens it — this is the op whose kernels you compared in Stage 4.'},
+  {k:'qkv', cls:'comp', label:'aten.mm  (QKV projection)',           det:'<b>Compute piece.</b> A matmul. Inductor either generates a kernel or (often) emits an <code>extern_kernels.mm</code> call into a tuned library GEMM.'},
+  {k:'kv',  cls:'attn', label:'vllm.unified_kv_cache_update  ⟵ seam',det:'<b>Seam op.</b> Writes K/V into the paged KV cache. In <code>splitting_ops</code>, so the graph is cut here — it runs eager, never enters Inductor.'},
+  {k:'attn',cls:'attn', label:'vllm.unified_attention_with_output  ⟵ seam',det:'<b>The main seam.</b> attention.py:571. Reads the paged cache and calls the backend attention kernel. Split out of every layer → 24 seams → 49 submodules. You will never find this among the generated Triton kernels.'},
+  {k:'o',   cls:'comp', label:'view → o_proj  (next compute piece)', det:'<b>Compute piece.</b> The attention output feeds the next compiled subgraph (o_proj + MLP), which Inductor handles again.'}
+];
+(function(){
+  var host=document.getElementById('g-nodes'), detail=document.getElementById('g-detail');
+  var codelns=document.querySelectorAll('#g-code .codeln');
+  function select(k){
+    GNODES.forEach(function(n){host.children[GNODES.indexOf(n)].classList.toggle('sel', n.k===k);});
+    codelns.forEach(function(l){l.classList.toggle('on', l.dataset.k===k);});
+    var n=GNODES.find(function(x){return x.k===k;}); if(n) detail.innerHTML=n.det;
+  }
+  GNODES.forEach(function(n){
+    var d=document.createElement('div'); d.className='node '+n.cls; d.textContent=n.label;
+    d.onclick=function(){select(n.k);}; host.appendChild(d);
+  });
+  codelns.forEach(function(l){l.style.cursor='pointer'; l.onclick=function(){select(l.dataset.k);};});
+})();
+
+/* ---------- terminal tabs ---------- */
+document.querySelectorAll('.tab').forEach(function(t){
+  t.onclick=function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on');});
+    t.classList.add('on');
+    document.getElementById('pcuda').classList.toggle('hide', t.dataset.pane!=='pcuda');
+    document.getElementById('pcpu').classList.toggle('hide', t.dataset.pane!=='pcpu');
+  };
+});
+
+/* ---------- config route resolver ---------- */
+(function(){
+  var DIALS={
+    mode:['none','stock','trace_once','vllm'],
+    backend:['inductor','eager'],
+    source:['native','custom'],
+    platform:['cuda','cpu']
+  };
+  var state={mode:'vllm',backend:'inductor',source:'native',platform:'cuda'};
+  var MCOL={tcuda:'var(--cuda)',tcpu:'var(--cpu)',t2:'var(--s2)',mut:'var(--mut)'};
+  function resolve(s){
+    var cuda=s.platform==='cuda';
+    if(s.source==='custom'){
+      return {st:{torch:s.mode!=='none',vllm:s.mode==='vllm',ind:false,term:'custom'},
+        mech:cuda?'nvcc':'vllm _C (C++)', cls:'t2',
+        why:'custom_ops keeps rms_norm on <code>forward_'+(cuda?'cuda':'cpu')+'()</code> — a hand-written '
+          +(cuda?'CUDA (nvcc)':'C++ (_C)')+' kernel. It is an <b>opaque</b> node: Inductor never writes it, even under VLLM_COMPILE.',
+        a:'custom_op.py:174 → forward_'+(cuda?'cuda':'cpu')};
+    }
+    if(s.mode==='none'){
+      return {st:{torch:false,vllm:false,ind:false,term:'eager'}, mech:cuda?'aten_cuda':'aten_cpu', cls:'mut',
+        why:'No compile at all. <code>forward_native</code> runs as eager ATen ops, dispatched one by one.',
+        a:'compilation.py:1051 (mode==NONE)'};
+    }
+    if(s.backend==='eager'){
+      return {st:{torch:true,vllm:s.mode==='vllm',ind:false,term:'eager'}, mech:cuda?'aten_cuda':'aten_cpu', cls:'mut',
+        why:(s.mode==='vllm'?'VllmBackend still splits at attention, but ':'')
+          +'the <code>eager</code> backend runs the traced graph without Inductor — leaves fall back to ATen dispatch.',
+        a:'init_backend → backend=="eager"'};
+    }
+    var term=cuda?'triton':'cpp', mech=cuda?'inductor_triton':'inductor_cpp', cls=cuda?'tcuda':'tcpu';
+    if(s.mode==='vllm'){
+      return {st:{torch:true,vllm:true,ind:true,term:term}, mech:mech, cls:cls,
+        why:'Full path: VllmBackend splits at attention, hands each piece to Inductor, which fuses rms_norm and emits a '
+          +(cuda?'Triton':'C++/OpenMP')+' kernel. <b>This is the exact run this book captured.</b>',
+        a:'compiler_interface.py:376 standalone_compile'};
+    }
+    return {st:{torch:true,vllm:false,ind:true,term:term}, mech:mech, cls:cls,
+      why:'Plain <code>torch.compile(backend="inductor")</code> — NO VllmBackend, no attention split, no piecewise/cudagraph. Dynamo → Inductor → '
+        +(cuda?'Triton':'C++')+' kernel.',
+      a:'init_backend → stock backend (compilation.py:1057)'};
+  }
+  var TLAB={triton:'Triton',cpp:'C++/OpenMP',custom:'custom kernel',eager:'eager ATen'};
+  var TDOT={triton:'var(--cuda)',cpp:'var(--cpu)',custom:'var(--s2)',eager:'var(--mut)'};
+  function render(){
+    document.querySelectorAll('.seg').forEach(function(seg){
+      var d=seg.dataset.dial;
+      Array.prototype.forEach.call(seg.children,function(b){b.classList.toggle('on', b.dataset.val===state[d]);});
+    });
+    var r=resolve(state), pipe=document.getElementById('cfg-pipe'); pipe.innerHTML='';
+    var stages=[['torch.compile','var(--s1)',r.st.torch],['VllmBackend','var(--s2)',r.st.vllm],
+      ['Inductor','var(--s3)',r.st.ind],[TLAB[r.st.term],TDOT[r.st.term],true]];
+    stages.forEach(function(st,i){
+      if(i){var ar=document.createElement('span');ar.className='arrow';ar.textContent='→';pipe.appendChild(ar);}
+      var el=document.createElement('span'); el.className='plight'+(st[2]?' on':'');
+      el.innerHTML='<span class="dot" style="background:'+st[1]+'"></span>'+st[0]; pipe.appendChild(el);
+    });
+    var mech=document.getElementById('cfg-mech'); mech.textContent=r.mech; mech.style.background=MCOL[r.cls];
+    document.getElementById('cfg-anchor').textContent=r.a;
+    document.getElementById('cfg-detail').innerHTML=r.why;
+  }
+  Object.keys(DIALS).forEach(function(d){
+    var seg=document.querySelector('.seg[data-dial="'+d+'"]'); if(!seg)return;
+    DIALS[d].forEach(function(v){
+      var b=document.createElement('button'); b.className='segbtn'; b.textContent=v; b.dataset.val=v;
+      b.onclick=function(){state[d]=v; render();}; seg.appendChild(b);
+    });
+  });
+  render();
+})();
+
+/* ---------- layer cake (foundation vs optional) ---------- */
+(function(){
+  var D={
+    cfg:'The <b>compile knob</b>. Picks how the graph is compiled — inductor / eager / a custom CompilerInterface. Fully <b>orthogonal to the device</b>: it cannot make vLLM run on new hardware. Even a custom backend is resolved via <code>current_platform.get_compile_backend()</code> (backends.py:96), so it too rides the Platform. Drop the whole layer with <code>backend="eager"</code>.',
+    csrc:'vLLM\'s <b>hand-written CUDA/C++ kernels</b> (rms_norm, activation, quant…). <b>Per-op optional</b> via <code>custom_ops</code> (custom_op.py:272): off → <code>forward_native</code>, which runs on the same device through <b>torch\'s own CUDA kernels</b> (cuBLAS). So "not using vLLM csrc" ≠ "not using CUDA".',
+    floor:'The one part of the kernel layer you <b>cannot drop</b>: paged attention (<code>flash_attn_varlen_func</code>, bundled <code>vllm_flash_attn</code>) and KV-cache write (<code>torch.ops._C_cache_ops.reshape_and_cache_flash</code>, _custom_ops.py:2453) are compiled with <b>no pure-torch fallback</b>. This is why a new device must ship an AttentionBackend + KV kernel, and why <code>enforce_eager</code> still needs them.',
+    plat:'The <b>foundation</b>. <code>current_platform</code> (a Platform plugin) is the only thing that makes vLLM <b>recognize your device</b>: it sets <code>worker_cls</code>, <code>init_device</code> (where tensors land), memory profiling, KV cache, attention-backend selection, communicator, <code>dispatch_key</code>. Skip it → falls back to CUDA/Unspecified → <code>Worker</code> does <code>torch.device("cuda")</code> → your model never reaches your hardware. <b>Mandatory, always — regardless of csrc or compile mode.</b>'
+  };
+  var layers=document.querySelectorAll('#layers .layer'), det=document.getElementById('layer-detail');
+  layers.forEach(function(l){ l.onclick=function(){
+    layers.forEach(function(x){x.classList.toggle('sel', x===l);});
+    det.innerHTML=D[l.dataset.l];
+  };});
+})();
+
+/* ---------- device-port wrapper anatomy ---------- */
+(function(){
+  var DET={
+    gen:'<b>Inductor-generated kernel (bucket B).</b> Inductor codegen wrote this — Triton on CUDA, C++/OpenMP on CPU. <b>New device:</b> register an Inductor codegen backend via <code>register_backend_for_device(device, Scheduling, WrapperCodegen)</code> + a device interface via <code>register_interface_for_device</code>. To emit Triton, Triton itself must have a backend for your hardware; else ship a custom Scheduling or fall back to eager.',
+    ext:'<b>Extern library call (bucket A).</b> <code>extern_kernels.mm</code> is just <code>aten::mm</code> — it rides the PyTorch dispatcher to cuBLAS because the inputs are CUDA tensors. <b>New device:</b> your ATen backend needs kernels for the ops Inductor leaves extern (<code>mm/addmm/bmm/convolution/sdpa</code>). A real torch backend has them; PrivateUse1 registers them with <code>TORCH_LIBRARY_IMPL(aten, PrivateUse1, ...)</code>.',
+    fb:'<b>Eager ATen fallback + allocation (bucket A).</b> Un-fused <code>aten.mean/rsqrt/...</code>, <code>empty_strided_cuda</code>, and <code>reinterpret_tensor</code> — all dispatcher-routed, exactly like eager mode. <b>New device:</b> same ATen backend; the wrapper codegen emits <code>empty_strided_&lt;your_device&gt;</code>, so it must know how to allocate on your device. Views do no device compute.'
+  };
+  var chips=document.querySelectorAll('.kc'), lines=document.querySelectorAll('#wrap-code .wl'),
+      detail=document.getElementById('wrap-detail');
+  function sel(k){
+    chips.forEach(function(c){c.classList.toggle('sel', c.dataset.k===k);});
+    lines.forEach(function(l){
+      var m=l.dataset.k===k;
+      l.classList.toggle('on', m);
+      l.classList.toggle('dim', l.dataset.k? !m : false);
+    });
+    detail.innerHTML=DET[k];
+  }
+  chips.forEach(function(c){c.onclick=function(){sel(c.dataset.k);};});
+  lines.forEach(function(l){ if(l.dataset.k){ l.style.cursor='pointer'; l.onclick=function(){sel(l.dataset.k);}; }});
+})();
+
+/* ---------- self-test ---------- */
+var QUIZ=[
+  {kind:'trace',q:'Trace it: you call llm.generate() for the first request. Where did all the "compiling…" work actually happen — and why not here?',
+   a:'It already happened at <b>startup</b>, during <code>profile_run → _dummy_run</code> (Stage 1). <code>torch.compile()</code> only <i>registers</i> at model construction; the first real forward triggers Dynamo → split → Inductor. Warm-up fires that first forward on fake inputs, so by request time the artifacts are cached and replayed. <span class="anchor">gpu_model_runner.py:6262</span>'},
+  {kind:'counterfactual',q:'What breaks if attention were NOT in splitting_ops — if you let Inductor swallow the whole graph?',
+   a:'Inductor would try to compile the attention op like any other node, but attention isn\'t a pure functional op — it reads/writes the paged KV cache and dispatches a hand-written backend kernel. It can\'t be fused or CUDA-graphed as a static kernel. The split exists precisely to keep attention <b>eager</b> in the gaps between compiled compute pieces. <span class="anchor">partition_rules.py:14</span>'},
+  {kind:'trade-off',q:'Why does PiecewiseBackend compile all shape ranges up front at warm-up instead of lazily per request?',
+   a:'Lazy per-shape compilation would stall the <i>first</i> request that hits a new shape (a latency spike mid-serving). Compiling ranges up front pays the whole cost once, during warm-up, so steady-state serving has no compile pauses — at the price of a longer, noisier startup (our run: ~39&nbsp;s init). <span class="anchor">piecewise_backend.py:190</span>'},
+  {kind:'mechanism',q:'Same op, two kernels: what single decision inside Inductor makes fused_add_rms_norm come out as Triton on GPU and C++ on CPU?',
+   a:'The device of the tensors selects Inductor\'s <b>codegen backend</b>: the Triton scheduler for CUDA, the C++/OpenMP scheduler for CPU. Everything upstream — the FX graph, the fusion decision (reduce Σx² → rsqrt → scale) — is identical; only the final code emitter differs. That\'s why the two kernels have the same three-phase structure in different languages. <span class="anchor">Stage 4</span>'},
+  {kind:'trap',q:'A colleague sees no cudagraph speedup and no error in the logs. What are the two most likely silent causes?',
+   a:'(1) A <b>runtime_mode / batch-descriptor mismatch</b> makes <code>CUDAGraphWrapper</code> fall back to eager silently — "no cudagraph" is not an error <span class="anchor">cuda_graph.py:254</span>. (2) The batch size isn\'t among the <b>captured sizes</b> ([1,2,4,8,16] here) — anything larger runs uncaptured. Both look identical in a happy-path log.'},
+  {kind:'trade-off',q:'If you ran torch.compile(backend="inductor") directly on a vLLM module (no VllmBackend), what would you lose?',
+   a:'The <code>vllm_ir</code> ops (e.g. <code>fused_add_rms_norm</code>) would stay <b>opaque extern calls</b> — the <code>VllmIRLoweringPass</code> that rewrites them into fuseable ATen lives in VllmBackend\'s post-grad manager, not in stock Inductor. You\'d also lose the attention split and the piecewise/cudagraph wrapping. Verified on CPU: the op survived as <code>vllm_ir.fused_add_rms_norm.maybe_inplace</code>, only the matmul lowered. <span class="anchor">Gotcha #2</span>'},
+  {kind:'mechanism',q:'You keep default LLM() but set compilation_config mode=STOCK_TORCH_COMPILE, backend="inductor". Which parts of this book\'s flow survive, and which vanish?',
+   a:'You still get <b>Dynamo → Inductor → Triton</b> — a real compiled kernel. You <b>lose</b> everything VllmBackend adds: no attention split, no piecewise submodules, no per-piece cudagraph wrapping. <code>init_backend</code> returns a <i>stock</i> torch backend and never constructs VllmBackend, so one big graph (attention included) goes to Inductor. <span class="anchor">compilation.py:1057–1071</span>'},
+  {kind:'counterfactual',q:'You port the model to a new device and register only register_backend_for_device (Triton codegen works), but give it no ATen backend. The wrapper still calls extern_kernels.mm and aten.rsqrt. What happens?',
+   a:'The generated Triton kernel runs (bucket B is done), but <code>extern_kernels.mm</code> → <code>aten::mm</code> and the un-fused <code>aten.rsqrt</code> have <b>no kernel for your dispatch key</b> → a dispatcher error (or a wrong-device fallback). Inductor output always mixes generated kernels with dispatcher ATen ops, so you also need <b>bucket A</b> — or set <code>backend="eager"</code>, which drops Inductor entirely and needs only A. <span class="anchor">§ Beyond Triton</span>'}
+];
+(function(){
+  var host=document.getElementById('quiz');
+  QUIZ.forEach(function(item){
+    var wrap=document.createElement('div'); wrap.className='q';
+    wrap.innerHTML='<div class="qt"><span class="kind">'+item.kind+'</span>'+item.q+'</div><div class="a">'+item.a+'</div>';
+    wrap.querySelector('.qt').onclick=function(){wrap.classList.toggle('open');};
+    host.appendChild(wrap);
+  });
+})();
+
+/* ---------- lazy-load full captures into appendix ---------- */
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function load(path,id){
+  fetch(path).then(function(r){return r.ok?r.text():Promise.reject();})
+    .then(function(t){document.getElementById(id).innerHTML=esc(t);})
+    .catch(function(){document.getElementById(id).textContent='(open '+path+' in your editor — fetch blocked when viewing via file://)';});
+}
+load('captures/callflow/cuda_triton_fused_add_rms_norm.py','full-triton');
+load('captures/callflow/cpu_inductor_output_code.py','full-cpp');
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Excerpt of the Dynamo/AOT FX graph BEFORE vLLM's split (depyf: __compiled_fn_1.before_split.0.py)
+# ... one Qwen2 decoder layer's tail: RMSNorm (vllm_ir) -> QKV mm -> ATTENTION (split boundary) ...
+
+        # File: /home/alex/vllm/vllm/model_executor/layers/attention/attention.py:538 in forward, code: value = value.view(-1, self.num_kv_heads, self.head_size_v)
+        value: "bf16[s72, 2, 64]" = v.view(-1, 2, 64);  v = None
+
+        # File: /home/alex/vllm/vllm/model_executor/layers/attention/attention.py:568 in forward, code: kv_cache_dummy_dep = torch.ops.vllm.unified_kv_cache_update(
+        kv_cache_dummy_dep: "bf16[0]" = torch.ops.vllm.unified_kv_cache_update(key_2, value, synthetic_local_tmp_0_)
+
+        # File: /home/alex/vllm/vllm/model_executor/layers/attention/attention.py:571 in forward, code: torch.ops.vllm.unified_attention_with_output(
+        unified_attention_with_output = torch.ops.vllm.unified_attention_with_output(query_2, key_2, value, output_3, synthetic_local_tmp_0_, kv_cache_dummy_dep = kv_cache_dummy_dep);  query_2 = key_2 = value = synthetic_local_tmp_0_ = kv_cache_dummy_dep = unified_attention_with_output = None
+
+        # File: /home/alex/vllm/vllm/model_executor/layers/attention/attention.py:579 in forward, code: return output.view(-1, hidden_size)
+        attn_output: "bf16[s72, 896]" = output_3.view(-1, 896);  output_3 = None

@@ -1,0 +1,6 @@
+# Curated from the live CUDA run (VLLM_LOGGING_LEVEL=DEBUG). See capture_callflow.py.
+Dynamo bytecode transform time: 2.57 s
+Compiling a graph for compile range (1, 8192) takes 4.28 s
+Using InductorStandaloneAdaptor
+PiecewiseBackend: compile_ranges: [(1, 8192)]
+# generation: ' Paris. It is the largest city in Europe and the second largest city in the'
